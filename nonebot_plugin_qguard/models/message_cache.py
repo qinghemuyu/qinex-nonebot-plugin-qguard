@@ -18,4 +18,10 @@ class MessageCache(Base):
     at_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     link_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
