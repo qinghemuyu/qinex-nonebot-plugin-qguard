@@ -2,6 +2,7 @@ from typing import Any
 
 from nonebot import on_notice
 from nonebot.adapters.onebot.v11 import Bot, NoticeEvent
+from nonebot.log import logger
 
 from nonebot_plugin_qguard.adapter.onebot_v11_ops import OneBotV11GroupOps
 from nonebot_plugin_qguard.services.card_lock_service import CardLockService
@@ -27,10 +28,13 @@ async def _(bot: Bot, event: NoticeEvent) -> None:
     if group_id is None or user_id is None:
         return
     current_card = str(data.get("card") or data.get("new_card") or "")
-    await CardLockService().repair_member(
-        OneBotV11GroupOps(bot),
-        int(group_id),
-        int(user_id),
-        current_card=current_card,
-        from_event=True,
-    )
+    try:
+        await CardLockService().repair_member(
+            OneBotV11GroupOps(bot),
+            int(group_id),
+            int(user_id),
+            current_card=current_card,
+            from_event=True,
+        )
+    except Exception as exc:
+        logger.warning("QGuard notice card-lock check failed: {}", exc)

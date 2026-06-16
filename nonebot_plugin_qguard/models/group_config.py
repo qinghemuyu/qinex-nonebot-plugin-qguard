@@ -21,3 +21,4 @@ class GroupConfig(TimestampMixin, Base):
     message_cache_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     default_mute_seconds: Mapped[int] = mapped_column(Integer, default=600, nullable=False)
     card_lock_patrol_interval_seconds: Mapped[int] = mapped_column(Integer, default=600, nullable=False)
+    newbie_protection_seconds: Mapped[int] = mapped_column(Integer, default=86400, nullable=False)
