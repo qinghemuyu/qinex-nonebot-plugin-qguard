@@ -83,6 +83,24 @@ async def _migrate_sqlite_schema(conn: AsyncConnection) -> None:
         "newbie_protection_seconds",
         "INTEGER NOT NULL DEFAULT 86400",
     )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "group_config",
+        "newbie_block_links",
+        "BOOLEAN NOT NULL DEFAULT 0",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "group_config",
+        "newbie_block_images",
+        "BOOLEAN NOT NULL DEFAULT 0",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "audit_log",
+        "updated_at",
+        "DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00'",
+    )
 
 
 async def _add_sqlite_column_if_missing(
