@@ -1,4 +1,8 @@
+import sys
+
 from nonebot import get_driver
+
+sys.modules.setdefault("nonebot_plugin_qguard", sys.modules[__name__])
 
 from .metadata import __plugin_meta__ as __plugin_meta__
 from .models.base import init_db
