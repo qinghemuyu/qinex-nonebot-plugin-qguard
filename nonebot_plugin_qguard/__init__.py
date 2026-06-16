@@ -19,6 +19,7 @@ from .commands import audit as audit  # noqa: E402,F401
 from .commands import card as card  # noqa: E402,F401
 from .commands import card_lock as card_lock  # noqa: E402,F401
 from .commands import punish as punish  # noqa: E402,F401
+from .commands import rule as rule  # noqa: E402,F401
 from .commands import root as root  # noqa: E402,F401
 from .handlers import message_handler as message_handler  # noqa: E402,F401
 from .handlers import notice_handler as notice_handler  # noqa: E402,F401

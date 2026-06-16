@@ -1,6 +1,12 @@
+import re
 from typing import Any
 
 from pydantic import BaseModel
+
+from nonebot_plugin_qguard.enums import RuleType
+from nonebot_plugin_qguard.models.base import get_session
+from nonebot_plugin_qguard.repositories.group_config_repo import GroupConfigRepo
+from nonebot_plugin_qguard.repositories.rule_repo import RuleRepo
 
 
 class MessageContext(BaseModel):
@@ -28,4 +34,32 @@ class ModerationDecision(BaseModel):
 
 class RuleEngine:
     async def check(self, context: MessageContext) -> ModerationDecision:
+        async with get_session() as session:
+            config = await GroupConfigRepo(session).get_or_create(context.group_id)
+            if not config.enabled or not config.auto_moderation_enabled:
+                return ModerationDecision(hit=False)
+            rules = await RuleRepo(session).list_enabled(context.group_id)
+
+        for rule in rules:
+            if rule.rule_type == str(RuleType.KEYWORD):
+                matched = rule.pattern in context.plain_text
+            elif rule.rule_type == str(RuleType.REGEX):
+                try:
+                    matched = re.search(rule.pattern, context.plain_text, re.IGNORECASE) is not None
+                except re.error:
+                    matched = False
+            else:
+                matched = False
+
+            if matched:
+                return ModerationDecision(
+                    hit=True,
+                    rule_id=rule.id,
+                    rule_type=rule.rule_type,
+                    action=rule.action,
+                    reason=f"命中规则 #{rule.id}: {rule.pattern}",
+                    score_delta=rule.score_delta,
+                    mute_seconds=rule.mute_seconds,
+                    delete_message=rule.delete_message,
+                )
         return ModerationDecision(hit=False)

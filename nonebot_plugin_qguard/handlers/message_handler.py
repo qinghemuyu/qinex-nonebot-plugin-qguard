@@ -6,9 +6,16 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 from nonebot.log import logger
 
 from nonebot_plugin_qguard.adapter.onebot_v11_ops import OneBotV11GroupOps
+from nonebot_plugin_qguard.config import load_config
 from nonebot_plugin_qguard.constants import CARD_LOCK_MESSAGE_SCAN_INTERVAL_SECONDS
+from nonebot_plugin_qguard.enums import AuditAction, AuditResult, RuleAction
+from nonebot_plugin_qguard.models.base import get_session
+from nonebot_plugin_qguard.repositories.audit_log_repo import AuditLogRepo
 from nonebot_plugin_qguard.services.card_lock_service import CardLockService
 from nonebot_plugin_qguard.services.message_cache_service import MessageCacheService
+from nonebot_plugin_qguard.services.permission_service import PermissionService
+from nonebot_plugin_qguard.services.punishment_service import PunishmentService
+from nonebot_plugin_qguard.services.rule_engine import MessageContext, ModerationDecision, RuleEngine
 
 message_matcher = on_message(priority=20, block=False)
 _last_group_scan_at: dict[int, float] = {}
@@ -21,6 +28,11 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         await MessageCacheService().cache_group_message(event)
     except Exception as exc:
         logger.warning("QGuard message cache failed: {}", exc)
+
+    try:
+        await _run_auto_moderation(bot, event)
+    except Exception as exc:
+        logger.warning("QGuard auto moderation failed: {}", exc)
 
     try:
         await CardLockService().repair_member(
@@ -68,3 +80,118 @@ async def _run_silent_group_card_scan(bot: Bot, group_id: int) -> None:
             )
     except Exception as exc:
         logger.warning("QGuard silent card scan failed group={}: {}", group_id, exc)
+
+
+async def _run_auto_moderation(bot: Bot, event: GroupMessageEvent) -> None:
+    plain_text = event.get_plaintext()
+    config = load_config()
+    if plain_text.strip().startswith(config.qguard_command_prefix):
+        return
+
+    image_count = sum(1 for segment in event.message if segment.type == "image")
+    at_count = sum(1 for segment in event.message if segment.type == "at")
+    link_count = plain_text.count("http://") + plain_text.count("https://")
+    decision = await RuleEngine().check(
+        MessageContext(
+            group_id=event.group_id,
+            user_id=event.user_id,
+            message_id=event.message_id,
+            plain_text=plain_text,
+            raw_message=event.message,
+            image_count=image_count,
+            at_count=at_count,
+            link_count=link_count,
+        )
+    )
+    if not decision.hit:
+        return
+
+    ops = OneBotV11GroupOps(bot)
+    async with get_session() as session:
+        protected = await PermissionService(session).is_protected_from_auto_action(ops, event.group_id, event.user_id)
+        if protected:
+            await AuditLogRepo(session).create(
+                group_id=event.group_id,
+                operator_id=_bot_id(bot),
+                target_user_id=event.user_id,
+                action=AuditAction.HIT_RULE,
+                result=AuditResult.SKIPPED,
+                reason=decision.reason,
+                related_message_id=event.message_id,
+                related_rule_id=decision.rule_id,
+                metadata={"action": decision.action, "protected": True},
+            )
+            await session.commit()
+            return
+
+    result = await _apply_moderation_decision(ops, _bot_id(bot), event, decision)
+    async with get_session() as session:
+        await AuditLogRepo(session).create(
+            group_id=event.group_id,
+            operator_id=_bot_id(bot),
+            target_user_id=event.user_id,
+            action=AuditAction.HIT_RULE,
+            result=AuditResult.SUCCESS if result else AuditResult.FAILED,
+            reason=decision.reason,
+            related_message_id=event.message_id,
+            related_rule_id=decision.rule_id,
+            metadata={"action": decision.action, "mute_seconds": decision.mute_seconds},
+        )
+        await session.commit()
+
+
+async def _apply_moderation_decision(
+    ops: OneBotV11GroupOps,
+    operator_id: int,
+    event: GroupMessageEvent,
+    decision: ModerationDecision,
+) -> bool:
+    service = PunishmentService()
+    ok = True
+    if decision.delete_message:
+        delete_result = await service.delete_msg(ops, event.group_id, operator_id, event.message_id, decision.reason)
+        ok = ok and delete_result.success
+
+    action = decision.action
+    if action == RuleAction.WARN.value:
+        result = await service.warn(
+            ops,
+            event.group_id,
+            operator_id,
+            event.user_id,
+            decision.reason,
+            related_message_id=event.message_id,
+        )
+        ok = ok and result.success
+    elif action == RuleAction.MUTE.value:
+        result = await service.mute(
+            ops,
+            event.group_id,
+            operator_id,
+            event.user_id,
+            decision.mute_seconds or 600,
+            decision.reason,
+            related_message_id=event.message_id,
+        )
+        ok = ok and result.success
+    elif action == RuleAction.KICK.value:
+        result = await service.kick(ops, event.group_id, operator_id, event.user_id, decision.reason)
+        ok = ok and result.success
+    elif action == RuleAction.KICK_BLACK.value:
+        result = await service.kick(
+            ops,
+            event.group_id,
+            operator_id,
+            event.user_id,
+            decision.reason,
+            reject_add_request=True,
+        )
+        ok = ok and result.success
+    return ok
+
+
+def _bot_id(bot: Bot) -> int:
+    try:
+        return int(bot.self_id)
+    except (TypeError, ValueError):
+        return 0
