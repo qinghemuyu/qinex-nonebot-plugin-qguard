@@ -1,4 +1,5 @@
 import re
+from collections.abc import Iterable
 from typing import Any
 
 from nonebot_plugin_qguard.enums import RuleAction, RuleType
@@ -30,12 +31,18 @@ class AntiAdService:
         "下载",
     }
 
-    def check(self, plain_text: str, link_count: int = 0, at_count: int = 0) -> dict[str, Any] | None:
+    def check(
+        self,
+        plain_text: str,
+        link_count: int = 0,
+        at_count: int = 0,
+        extra_keywords: Iterable[str] = (),
+    ) -> dict[str, Any] | None:
         text = plain_text.strip()
         if not text and link_count <= 0:
             return None
 
-        normalized = text.lower()
+        normalized = text.casefold()
         score = 0
         reasons: list[str] = []
 
@@ -45,6 +52,14 @@ class AntiAdService:
         if any(keyword in normalized for keyword in self._ad_keywords):
             score += 1
             reasons.append("包含广告/引流词")
+        custom_hits = [
+            keyword.strip()
+            for keyword in extra_keywords
+            if keyword.strip() and keyword.strip().casefold() in normalized
+        ]
+        if custom_hits:
+            score += 2
+            reasons.append(f"命中广告词：{custom_hits[0]}")
         if any(pattern.search(text) for pattern in self._invite_patterns):
             score += 2
             reasons.append("疑似外部联系方式或群号")

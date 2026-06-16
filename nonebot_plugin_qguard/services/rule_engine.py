@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from nonebot_plugin_qguard.enums import RuleType
 from nonebot_plugin_qguard.models.base import get_session
+from nonebot_plugin_qguard.repositories.ad_keyword_repo import AdKeywordRepo
 from nonebot_plugin_qguard.repositories.group_config_repo import GroupConfigRepo
 from nonebot_plugin_qguard.repositories.rule_repo import RuleRepo
 from nonebot_plugin_qguard.services.anti_ad_service import AntiAdService
@@ -43,10 +44,20 @@ class RuleEngine:
             anti_ad_enabled = config.anti_ad_enabled
             anti_spam_enabled = config.anti_spam_enabled
             keyword_check_enabled = config.keyword_check_enabled
+            ad_keywords = (
+                [item.keyword for item in await AdKeywordRepo(session).list_enabled(context.group_id)]
+                if anti_ad_enabled
+                else []
+            )
             rules = await RuleRepo(session).list_enabled(context.group_id)
 
         if anti_ad_enabled:
-            anti_ad = AntiAdService().check(context.plain_text, context.link_count, context.at_count)
+            anti_ad = AntiAdService().check(
+                context.plain_text,
+                context.link_count,
+                context.at_count,
+                ad_keywords,
+            )
             if anti_ad is not None:
                 return ModerationDecision(hit=True, **anti_ad)
 

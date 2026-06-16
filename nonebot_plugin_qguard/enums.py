@@ -34,6 +34,8 @@ class AuditAction(StrEnum):
     SET_AUTO_DELETE_REPLY = "set_auto_delete_reply"
     SET_ANTI_AD = "set_anti_ad"
     SET_ANTI_SPAM = "set_anti_spam"
+    ADD_AD_KEYWORD = "add_ad_keyword"
+    REMOVE_AD_KEYWORD = "remove_ad_keyword"
     ADD_WHITELIST = "add_whitelist"
     REMOVE_WHITELIST = "remove_whitelist"
     ADD_BLACKLIST = "add_blacklist"

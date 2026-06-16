@@ -50,7 +50,17 @@ async def init_db() -> None:
         if db_path and db_path != ":memory:":
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
-    from . import audit_log, blacklist, card_lock, group_config, member_profile, message_cache, rule, whitelist  # noqa: F401
+    from . import (  # noqa: F401
+        ad_keyword,
+        audit_log,
+        blacklist,
+        card_lock,
+        group_config,
+        member_profile,
+        message_cache,
+        rule,
+        whitelist,
+    )
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

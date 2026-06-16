@@ -3,6 +3,7 @@ from uuid import uuid4
 import pytest
 
 from nonebot_plugin_qguard.enums import RuleAction, RuleType
+from nonebot_plugin_qguard.services.ad_keyword_service import AdKeywordService
 from nonebot_plugin_qguard.services.anti_spam_service import AntiSpamService
 from nonebot_plugin_qguard.services.group_config_service import GroupConfigService
 from nonebot_plugin_qguard.services.rule_engine import MessageContext, RuleEngine
@@ -41,6 +42,29 @@ async def test_anti_ad_detects_invite_link() -> None:
     assert decision.delete_message
     assert decision.mute_seconds == 600
     assert decision.score_delta == 2
+
+
+@pytest.mark.asyncio
+async def test_custom_ad_keyword_hits_and_can_be_removed() -> None:
+    group_id = 999000000 + (uuid4().int % 100000000)
+    keyword = f"custom-ad-{uuid4().hex}"
+    await GroupConfigService().set_anti_ad_enabled(group_id, 1, True)
+
+    add_result = await AdKeywordService().add(group_id, 1, keyword)
+    assert add_result.success
+
+    hit = await RuleEngine().check(_context(group_id, 2, 1, f"hello {keyword}"))
+    assert hit.hit
+    assert hit.rule_type == RuleType.LINK.value
+    assert hit.reason.startswith("广告检测：")
+
+    items = await AdKeywordService().list(group_id)
+    item = next(item for item in items if item.keyword == keyword)
+    remove_result = await AdKeywordService().remove(group_id, 1, item.id)
+    assert remove_result.success
+
+    miss = await RuleEngine().check(_context(group_id, 2, 2, f"hello {keyword}"))
+    assert not miss.hit
 
 
 @pytest.mark.asyncio
