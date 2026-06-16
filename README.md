@@ -22,7 +22,7 @@ pip install -e .
 
 ```env
 QGUARD_DB_URL=sqlite+aiosqlite:///./data/qguard.db
-QGUARD_SUPER_ADMINS=[123456789]
+QGUARD_SUPER_ADMINS=[1348984838]
 QGUARD_COMMAND_PREFIX=/管
 ```
 

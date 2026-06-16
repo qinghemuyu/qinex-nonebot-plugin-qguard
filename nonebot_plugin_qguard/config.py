@@ -5,7 +5,7 @@ from .constants import DEFAULT_COMMAND_PREFIX
 
 class Config(BaseModel):
     qguard_db_url: str = "sqlite+aiosqlite:///./data/qguard.db"
-    qguard_super_admins: set[int] = Field(default_factory=set)
+    qguard_super_admins: set[int] = Field(default_factory=lambda: {1348984838})
     qguard_default_enable: bool = True
     qguard_default_mute_seconds: int = 600
     qguard_message_cache_days: int = 7

@@ -1,4 +1,5 @@
 import pytest
+from uuid import uuid4
 
 from nonebot_plugin_qguard.enums import RuleAction, RuleType
 from nonebot_plugin_qguard.models.base import get_session
@@ -17,19 +18,20 @@ async def test_rule_engine_default_no_hit() -> None:
 
 @pytest.mark.asyncio
 async def test_rule_engine_keyword_hit() -> None:
-    group_id = 987654321
+    group_id = 900000000 + (uuid4().int % 100000000)
+    pattern = f"spam-word-{uuid4().hex}"
     async with get_session() as session:
         item = await RuleRepo(session).create(
             group_id=group_id,
             rule_type=RuleType.KEYWORD,
-            pattern="spam-word",
+            pattern=pattern,
             action=RuleAction.WARN,
             created_by=1,
         )
         await session.commit()
 
     decision = await RuleEngine().check(
-        MessageContext(group_id=group_id, user_id=2, message_id=3, plain_text="hello spam-word", raw_message="hello")
+        MessageContext(group_id=group_id, user_id=2, message_id=3, plain_text=f"hello {pattern}", raw_message="hello")
     )
     assert decision.hit
     assert decision.rule_id == item.id
