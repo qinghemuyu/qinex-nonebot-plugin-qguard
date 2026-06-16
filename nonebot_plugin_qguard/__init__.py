@@ -24,6 +24,7 @@ from .commands import newbie as newbie  # noqa: E402,F401
 from .commands import punish as punish  # noqa: E402,F401
 from .commands import rule as rule  # noqa: E402,F401
 from .commands import root as root  # noqa: E402,F401
+from .commands import score as score  # noqa: E402,F401
 from .commands import whitelist as whitelist  # noqa: E402,F401
 from .handlers import message_handler as message_handler  # noqa: E402,F401
 from .handlers import notice_handler as notice_handler  # noqa: E402,F401

@@ -12,7 +12,7 @@ class Rule(TimestampMixin, Base):
     rule_type: Mapped[str] = mapped_column(String(32), nullable=False)
     pattern: Mapped[str] = mapped_column(Text, nullable=False)
     action: Mapped[str] = mapped_column(String(32), nullable=False)
-    score_delta: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    score_delta: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     mute_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     delete_message: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

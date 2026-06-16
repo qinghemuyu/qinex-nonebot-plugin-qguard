@@ -58,7 +58,7 @@ class RuleEngine:
                     rule_type=rule.rule_type,
                     action=rule.action,
                     reason=f"命中规则 #{rule.id}: {rule.pattern}",
-                    score_delta=rule.score_delta,
+                    score_delta=rule.score_delta if rule.score_delta > 0 else 1,
                     mute_seconds=rule.mute_seconds,
                     delete_message=rule.delete_message,
                 )

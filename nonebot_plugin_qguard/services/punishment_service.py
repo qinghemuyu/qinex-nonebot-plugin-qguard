@@ -34,6 +34,7 @@ class PunishmentService:
         target_user_id: int,
         reason: str = DEFAULT_REASON,
         related_message_id: int | None = None,
+        score_delta: int = 1,
     ) -> ActionResult:
         async with get_session() as session:
             if not await self._check_enabled(session, group_id):
@@ -47,7 +48,7 @@ class PunishmentService:
                 result = await self._deny(session, AuditAction.WARN, group_id, operator_id, target_user_id, decision.reason)
                 await session.commit()
                 return result
-            await MemberRepo(session).add_warning(group_id, target_user_id)
+            await MemberRepo(session).add_warning(group_id, target_user_id, score_delta=score_delta)
             await AuditLogRepo(session).create(
                 group_id=group_id,
                 operator_id=operator_id,

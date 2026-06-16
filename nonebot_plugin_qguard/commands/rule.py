@@ -117,7 +117,8 @@ async def _handle_list_rules(bot: Bot, event: GroupMessageEvent) -> None:
     for item in rules:
         status = "启用" if item.enabled else "停用"
         extra = f" {item.mute_seconds}s" if item.mute_seconds else ""
-        lines.append(f"#{item.id} [{status}] {item.rule_type} {item.action}{extra}: {item.pattern}")
+        score = item.score_delta if item.score_delta > 0 else 1
+        lines.append(f"#{item.id} [{status}] {item.rule_type} {item.action}{extra} +{score}分: {item.pattern}")
     await finish_reply(rule_matcher, bot, event, "\n".join(lines))
 
 
@@ -142,6 +143,7 @@ async def _handle_test_rule(bot: Bot, event: GroupMessageEvent, args: list[str])
         event,
         f"命中规则 #{decision.rule_id}，动作：{decision.action}"
         + (f"，禁言 {decision.mute_seconds} 秒" if decision.mute_seconds else "")
+        + f"，积分 +{decision.score_delta}"
     )
 
 

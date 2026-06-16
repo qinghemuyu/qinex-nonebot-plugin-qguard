@@ -17,6 +17,7 @@ from nonebot_plugin_qguard.services.newbie_protection_service import NewbieProte
 from nonebot_plugin_qguard.services.permission_service import PermissionService
 from nonebot_plugin_qguard.services.punishment_service import PunishmentService
 from nonebot_plugin_qguard.services.rule_engine import MessageContext, ModerationDecision, RuleEngine
+from nonebot_plugin_qguard.services.score_service import ScoreResult, ScoreService
 
 message_matcher = on_message(priority=20, block=False)
 _last_group_scan_at: dict[int, float] = {}
@@ -133,6 +134,7 @@ async def _run_auto_moderation(bot: Bot, event: GroupMessageEvent) -> None:
             return
 
     result = await _apply_moderation_decision(ops, _bot_id(bot), event, decision)
+    score_result = await ScoreService().apply_decision_score(ops, _bot_id(bot), event, decision)
     async with get_session() as session:
         await AuditLogRepo(session).create(
             group_id=event.group_id,
@@ -143,7 +145,11 @@ async def _run_auto_moderation(bot: Bot, event: GroupMessageEvent) -> None:
             reason=decision.reason,
             related_message_id=event.message_id,
             related_rule_id=decision.rule_id,
-            metadata={"action": decision.action, "mute_seconds": decision.mute_seconds},
+            metadata={
+                "action": decision.action,
+                "mute_seconds": decision.mute_seconds,
+                "score": _score_metadata(score_result),
+            },
         )
         await session.commit()
 
@@ -169,6 +175,7 @@ async def _apply_moderation_decision(
             event.user_id,
             decision.reason,
             related_message_id=event.message_id,
+            score_delta=0,
         )
         ok = ok and result.success
     elif action == RuleAction.MUTE.value:
@@ -203,3 +210,13 @@ def _bot_id(bot: Bot) -> int:
         return int(bot.self_id)
     except (TypeError, ValueError):
         return 0
+
+
+def _score_metadata(score_result: ScoreResult) -> dict[str, object]:
+    return {
+        "delta": score_result.delta,
+        "previous_score": score_result.previous_score,
+        "current_score": score_result.current_score,
+        "penalty_action": score_result.penalty_action,
+        "penalty_success": score_result.penalty_success,
+    }

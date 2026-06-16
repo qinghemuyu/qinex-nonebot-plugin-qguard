@@ -37,7 +37,7 @@ class RuleRepo:
         created_by: int,
         mute_seconds: int = 0,
         delete_message: bool = False,
-        score_delta: int = 0,
+        score_delta: int = 1,
         priority: int = 100,
     ) -> Rule:
         item = Rule(
