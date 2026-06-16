@@ -1,0 +1,2 @@
+class ScoreService:
+    pass

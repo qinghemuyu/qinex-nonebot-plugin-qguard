@@ -1,0 +1,2 @@
+class PatrolService:
+    pass

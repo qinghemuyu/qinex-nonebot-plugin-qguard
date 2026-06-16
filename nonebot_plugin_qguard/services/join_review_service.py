@@ -1,0 +1,2 @@
+class JoinReviewService:
+    pass

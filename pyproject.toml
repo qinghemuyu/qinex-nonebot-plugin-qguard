@@ -1,0 +1,33 @@
+[project]
+name = "nonebot-plugin-qguard"
+version = "0.1.0"
+description = "A OneBot v11 QQ group moderation plugin for NoneBot 2."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "QGuard contributors" }]
+dependencies = [
+    "nonebot2>=2.2.0",
+    "nonebot-adapter-onebot>=2.4.0",
+    "nonebot-plugin-apscheduler>=0.4.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "aiosqlite>=0.19.0",
+    "pydantic>=1.10.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["nonebot_plugin_qguard*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
