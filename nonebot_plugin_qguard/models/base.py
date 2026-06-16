@@ -107,6 +107,18 @@ async def _migrate_sqlite_schema(conn: AsyncConnection) -> None:
         "updated_at",
         "DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00'",
     )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "whitelist",
+        "updated_at",
+        "DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00'",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "blacklist",
+        "updated_at",
+        "DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00'",
+    )
 
 
 async def _add_sqlite_column_if_missing(
