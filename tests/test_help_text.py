@@ -7,6 +7,8 @@ def test_help_text_mentions_rule_commands() -> None:
     assert "/管 规则 删除 ID" in HELP_TEXT
     assert "/管 规则 列表" in HELP_TEXT
     assert "/管 规则 测试 文本" in HELP_TEXT
+    assert "/管 广告检测 开" in HELP_TEXT
+    assert "/管 刷屏检测 开" in HELP_TEXT
     assert "/管 自动撤回 90s" in HELP_TEXT
     assert "/管 自动撤回 0" in HELP_TEXT
     assert "/管 积分 @用户" in HELP_TEXT

@@ -7,6 +7,8 @@ from nonebot_plugin_qguard.enums import RuleType
 from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.repositories.group_config_repo import GroupConfigRepo
 from nonebot_plugin_qguard.repositories.rule_repo import RuleRepo
+from nonebot_plugin_qguard.services.anti_ad_service import AntiAdService
+from nonebot_plugin_qguard.services.anti_spam_service import AntiSpamService
 
 
 class MessageContext(BaseModel):
@@ -38,7 +40,23 @@ class RuleEngine:
             config = await GroupConfigRepo(session).get_or_create(context.group_id)
             if not config.enabled or not config.auto_moderation_enabled:
                 return ModerationDecision(hit=False)
+            anti_ad_enabled = config.anti_ad_enabled
+            anti_spam_enabled = config.anti_spam_enabled
+            keyword_check_enabled = config.keyword_check_enabled
             rules = await RuleRepo(session).list_enabled(context.group_id)
+
+        if anti_ad_enabled:
+            anti_ad = AntiAdService().check(context.plain_text, context.link_count, context.at_count)
+            if anti_ad is not None:
+                return ModerationDecision(hit=True, **anti_ad)
+
+        if anti_spam_enabled:
+            anti_spam = AntiSpamService().check(context.group_id, context.user_id, context.plain_text)
+            if anti_spam is not None:
+                return ModerationDecision(hit=True, **anti_spam)
+
+        if not keyword_check_enabled:
+            return ModerationDecision(hit=False)
 
         for rule in rules:
             if rule.rule_type == str(RuleType.KEYWORD):

@@ -80,6 +80,18 @@ async def _migrate_sqlite_schema(conn: AsyncConnection) -> None:
     await _add_sqlite_column_if_missing(
         conn,
         "group_config",
+        "anti_ad_enabled",
+        "BOOLEAN NOT NULL DEFAULT 0",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "group_config",
+        "anti_spam_enabled",
+        "BOOLEAN NOT NULL DEFAULT 0",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "group_config",
         "newbie_protection_seconds",
         "INTEGER NOT NULL DEFAULT 86400",
     )

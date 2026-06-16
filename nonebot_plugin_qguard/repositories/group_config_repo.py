@@ -117,6 +117,18 @@ class GroupConfigRepo:
         await self.session.flush()
         return config
 
+    async def set_anti_ad_enabled(self, group_id: int, enabled: bool) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.anti_ad_enabled = enabled
+        await self.session.flush()
+        return config
+
+    async def set_anti_spam_enabled(self, group_id: int, enabled: bool) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.anti_spam_enabled = enabled
+        await self.session.flush()
+        return config
+
     async def set_join_review_enabled(self, group_id: int, enabled: bool) -> GroupConfig:
         config = await self.get_or_create(group_id)
         config.join_review_enabled = enabled

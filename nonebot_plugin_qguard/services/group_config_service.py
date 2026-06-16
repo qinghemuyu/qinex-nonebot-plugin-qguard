@@ -69,6 +69,40 @@ class GroupConfigService:
                 message=message,
             )
 
+    async def set_anti_ad_enabled(self, group_id: int, operator_id: int, enabled: bool) -> ActionResult:
+        async with get_session() as session:
+            config = await GroupConfigRepo(session).set_anti_ad_enabled(group_id, enabled)
+            await AuditLogRepo(session).create(
+                group_id=group_id,
+                operator_id=operator_id,
+                action=AuditAction.SET_ANTI_AD,
+                result=AuditResult.SUCCESS,
+                metadata={"anti_ad_enabled": enabled},
+            )
+            await session.commit()
+            return ActionResult(
+                success=True,
+                action=str(AuditAction.SET_ANTI_AD),
+                message=f"广告检测已{'开启' if config.anti_ad_enabled else '关闭'}。",
+            )
+
+    async def set_anti_spam_enabled(self, group_id: int, operator_id: int, enabled: bool) -> ActionResult:
+        async with get_session() as session:
+            config = await GroupConfigRepo(session).set_anti_spam_enabled(group_id, enabled)
+            await AuditLogRepo(session).create(
+                group_id=group_id,
+                operator_id=operator_id,
+                action=AuditAction.SET_ANTI_SPAM,
+                result=AuditResult.SUCCESS,
+                metadata={"anti_spam_enabled": enabled},
+            )
+            await session.commit()
+            return ActionResult(
+                success=True,
+                action=str(AuditAction.SET_ANTI_SPAM),
+                message=f"刷屏检测已{'开启' if config.anti_spam_enabled else '关闭'}。",
+            )
+
     async def set_new_member_protection_enabled(self, group_id: int, operator_id: int, enabled: bool) -> ActionResult:
         async with get_session() as session:
             config = await GroupConfigRepo(session).set_new_member_protection_enabled(group_id, enabled)

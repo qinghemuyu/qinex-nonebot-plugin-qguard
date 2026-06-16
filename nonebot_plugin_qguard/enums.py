@@ -32,6 +32,8 @@ class AuditAction(StrEnum):
     RESET_SCORE = "reset_score"
     SCORE_PENALTY = "score_penalty"
     SET_AUTO_DELETE_REPLY = "set_auto_delete_reply"
+    SET_ANTI_AD = "set_anti_ad"
+    SET_ANTI_SPAM = "set_anti_spam"
     ADD_WHITELIST = "add_whitelist"
     REMOVE_WHITELIST = "remove_whitelist"
     ADD_BLACKLIST = "add_blacklist"

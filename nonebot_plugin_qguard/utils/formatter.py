@@ -24,6 +24,8 @@ def format_group_status(config: GroupConfig) -> str:
         f"入群审核：{'是' if config.join_review_enabled else '否'}（暗号{join_answer_text}）\n"
         f"新人保护：{'是' if config.new_member_protection_enabled else '否'}（{config.newbie_protection_seconds} 秒，拦截{newbie_rule_text}）\n"
         f"自动审核：{'是' if config.auto_moderation_enabled else '否'}\n"
+        f"广告检测：{'是' if config.anti_ad_enabled else '否'}\n"
+        f"刷屏检测：{'是' if config.anti_spam_enabled else '否'}\n"
         f"默认禁言：{config.default_mute_seconds} 秒\n"
         f"自动撤回：{auto_delete_text}"
     )
