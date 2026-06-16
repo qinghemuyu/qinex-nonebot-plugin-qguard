@@ -1,10 +1,9 @@
 import json
 from datetime import datetime, timedelta
 
-from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import GroupMessageEvent
 
-from nonebot_plugin_qguard.config import Config
+from nonebot_plugin_qguard.config import load_config
 from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.models.message_cache import MessageCache
 from nonebot_plugin_qguard.repositories.message_cache_repo import MessageCacheRepo
@@ -12,7 +11,7 @@ from nonebot_plugin_qguard.repositories.message_cache_repo import MessageCacheRe
 
 class MessageCacheService:
     def __init__(self) -> None:
-        self.config = Config.parse_obj(get_driver().config.dict())
+        self.config = load_config()
 
     async def cache_group_message(self, event: GroupMessageEvent) -> None:
         if not self.config.qguard_enable_message_cache:

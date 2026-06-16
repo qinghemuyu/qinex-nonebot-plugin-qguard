@@ -8,12 +8,12 @@ from sqlalchemy import DateTime
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from nonebot_plugin_qguard.config import Config
+from nonebot_plugin_qguard.config import Config, load_config
 
 
 def _load_config() -> Config:
     try:
-        return Config.parse_obj(get_driver().config.dict())
+        return load_config()
     except ValueError:
         return Config()
 

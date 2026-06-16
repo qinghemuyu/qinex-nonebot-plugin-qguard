@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 from typing import Any
 
-from nonebot import get_driver
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nonebot_plugin_qguard.adapter.group_ops import GroupOps
-from nonebot_plugin_qguard.config import Config
+from nonebot_plugin_qguard.config import load_config
 from nonebot_plugin_qguard.enums import QGuardRole
 from nonebot_plugin_qguard.repositories.member_repo import MemberRepo
 from nonebot_plugin_qguard.repositories.whitelist_repo import WhitelistRepo
@@ -22,7 +21,7 @@ class PermissionDecision:
 class PermissionService:
     def __init__(self, session: AsyncSession):
         self.session = session
-        self.config = Config.parse_obj(get_driver().config.dict())
+        self.config = load_config()
 
     async def get_role(
         self,

@@ -14,3 +14,13 @@ class Config(BaseModel):
     qguard_enable_auto_moderation: bool = True
     qguard_enable_message_cache: bool = True
     qguard_command_prefix: str = DEFAULT_COMMAND_PREFIX
+
+
+def load_config() -> Config:
+    from nonebot import get_driver
+
+    raw_config = get_driver().config
+    data = raw_config.model_dump() if hasattr(raw_config, "model_dump") else raw_config.dict()
+    if hasattr(Config, "model_validate"):
+        return Config.model_validate(data)
+    return Config.parse_obj(data)

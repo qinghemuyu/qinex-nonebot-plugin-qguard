@@ -1,8 +1,7 @@
-from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 
 from nonebot_plugin_qguard.adapter.onebot_v11_ops import OneBotV11GroupOps
-from nonebot_plugin_qguard.config import Config
+from nonebot_plugin_qguard.config import Config, load_config
 from nonebot_plugin_qguard.enums import QGuardRole
 from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.services.permission_service import PermissionService
@@ -10,7 +9,7 @@ from nonebot_plugin_qguard.utils.message_parser import split_command
 
 
 def get_plugin_config() -> Config:
-    return Config.parse_obj(get_driver().config.dict())
+    return load_config()
 
 
 def parse_qguard_args(event: GroupMessageEvent) -> list[str]:
