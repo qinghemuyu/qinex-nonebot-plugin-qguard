@@ -42,7 +42,11 @@ class PunishmentService:
                 await session.commit()
                 return result
             decision = await PermissionService(session).can_operate(
-                ops, group_id=group_id, operator_id=operator_id, target_user_id=target_user_id
+                ops,
+                group_id=group_id,
+                operator_id=operator_id,
+                target_user_id=target_user_id,
+                required_role=QGuardRole.MINI_ADMIN,
             )
             if not decision.allowed:
                 result = await self._deny(session, AuditAction.WARN, group_id, operator_id, target_user_id, decision.reason)
@@ -78,7 +82,11 @@ class PunishmentService:
                 await session.commit()
                 return result
             decision = await PermissionService(session).can_operate(
-                ops, group_id=group_id, operator_id=operator_id, target_user_id=target_user_id
+                ops,
+                group_id=group_id,
+                operator_id=operator_id,
+                target_user_id=target_user_id,
+                required_role=QGuardRole.MINI_ADMIN,
             )
             if not decision.allowed:
                 result = await self._deny(session, AuditAction.MUTE, group_id, operator_id, target_user_id, decision.reason)
@@ -115,7 +123,11 @@ class PunishmentService:
     async def unmute(self, ops: GroupOps, group_id: int, operator_id: int, target_user_id: int, reason: str = DEFAULT_REASON) -> ActionResult:
         async with get_session() as session:
             decision = await PermissionService(session).can_operate(
-                ops, group_id=group_id, operator_id=operator_id, target_user_id=target_user_id
+                ops,
+                group_id=group_id,
+                operator_id=operator_id,
+                target_user_id=target_user_id,
+                required_role=QGuardRole.MINI_ADMIN,
             )
             if not decision.allowed:
                 result = await self._deny(session, AuditAction.UNMUTE, group_id, operator_id, target_user_id, decision.reason)
@@ -207,7 +219,7 @@ class PunishmentService:
     ) -> ActionResult:
         async with get_session() as session:
             decision = await PermissionService(session).can_operate(
-                ops, group_id=group_id, operator_id=operator_id, required_role=QGuardRole.GROUP_ADMIN
+                ops, group_id=group_id, operator_id=operator_id, required_role=QGuardRole.MINI_ADMIN
             )
             if not decision.allowed:
                 result = await self._deny(session, AuditAction.DELETE_MSG, group_id, operator_id, None, decision.reason)

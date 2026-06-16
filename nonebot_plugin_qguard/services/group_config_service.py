@@ -138,6 +138,23 @@ class GroupConfigService:
                 message=f"新人保护时长已设置为 {config.newbie_protection_seconds} 秒。",
             )
 
+    async def set_newbie_block_links(self, group_id: int, operator_id: int, enabled: bool) -> ActionResult:
+        async with get_session() as session:
+            config = await GroupConfigRepo(session).set_newbie_block_links(group_id, enabled)
+            await AuditLogRepo(session).create(
+                group_id=group_id,
+                operator_id=operator_id,
+                action=AuditAction.SET_NEWBIE_PROTECTION_LINK,
+                result=AuditResult.SUCCESS,
+                metadata={"newbie_block_links": enabled},
+            )
+            await session.commit()
+            return ActionResult(
+                success=True,
+                action=str(AuditAction.SET_NEWBIE_PROTECTION_LINK),
+                message=f"新人链接拦截已{'开启' if config.newbie_block_links else '关闭'}。",
+            )
+
     async def set_newbie_block_images(self, group_id: int, operator_id: int, enabled: bool) -> ActionResult:
         async with get_session() as session:
             config = await GroupConfigRepo(session).set_newbie_block_images(group_id, enabled)

@@ -1,5 +1,6 @@
 from nonebot_plugin_qguard.models.audit_log import AuditLog
 from nonebot_plugin_qguard.models.group_config import GroupConfig
+from nonebot_plugin_qguard.models.message_cache import MessageCache
 
 
 def format_group_status(config: GroupConfig) -> str:
@@ -39,4 +40,18 @@ def format_audit_logs(logs: list[AuditLog]) -> str:
         target = f" -> {item.target_user_id}" if item.target_user_id else ""
         error = f"，错误：{item.error_message}" if item.error_message else ""
         lines.append(f"#{item.id} {item.action} {item.result} {item.operator_id}{target}{error}")
+    return "\n".join(lines)
+
+
+def format_cached_messages(messages: list[MessageCache]) -> str:
+    if not messages:
+        return "暂无缓存消息。"
+    lines = ["最近消息："]
+    for item in messages:
+        text = (item.plain_text or "").strip().replace("\n", " ")
+        if len(text) > 60:
+            text = text[:57] + "..."
+        if not text:
+            text = "[非文本消息]"
+        lines.append(f"#{item.message_id} {item.user_id}: {text}")
     return "\n".join(lines)

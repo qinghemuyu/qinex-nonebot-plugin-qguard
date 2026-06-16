@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nonebot_plugin_qguard.models.message_cache import MessageCache
@@ -30,3 +30,12 @@ class MessageCacheRepo:
     async def cleanup_expired(self) -> int:
         result = await self.session.execute(delete(MessageCache).where(MessageCache.expires_at < datetime.utcnow()))
         return result.rowcount or 0
+
+    async def latest_by_user(self, group_id: int, user_id: int, limit: int = 10) -> list[MessageCache]:
+        result = await self.session.scalars(
+            select(MessageCache)
+            .where(MessageCache.group_id == group_id, MessageCache.user_id == user_id)
+            .order_by(MessageCache.created_at.desc())
+            .limit(limit)
+        )
+        return list(result)

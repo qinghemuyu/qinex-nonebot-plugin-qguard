@@ -73,3 +73,23 @@ async def test_newbie_normal_message_is_ignored() -> None:
     assert not handled
     assert ops.deleted == []
     assert ops.muted == []
+
+
+@pytest.mark.asyncio
+async def test_newbie_link_block_can_be_disabled() -> None:
+    group_id = 961000000 + (uuid4().int % 100000000)
+    user_id = 10000 + (uuid4().int % 100000)
+    operator_id = 999999
+
+    config_service = GroupConfigService()
+    await config_service.set_new_member_protection_enabled(group_id, operator_id, True)
+    await config_service.set_newbie_block_links(group_id, operator_id, False)
+    await NewbieProtectionService().record_join(group_id, user_id)
+
+    ops = FakeOps(operator_id, user_id)
+    event = FakeEvent(group_id, user_id, 34567, "visit https://example.com")
+    handled = await NewbieProtectionService().handle_message(ops, operator_id, event)
+
+    assert not handled
+    assert ops.deleted == []
+    assert ops.muted == []

@@ -33,9 +33,10 @@ class PermissionService:
         if user_id in self.config.qguard_super_admins:
             return QGuardRole.SUPER_ADMIN
 
+        plugin_role = QGuardRole.MEMBER
         profile = await MemberRepo(self.session).get(group_id, user_id)
         if profile is not None and profile.role > int(QGuardRole.MEMBER):
-            return QGuardRole(profile.role)
+            plugin_role = QGuardRole(profile.role)
 
         if member_info is None:
             try:
@@ -43,11 +44,12 @@ class PermissionService:
             except Exception:
                 member_info = {}
         role = member_info.get("role")
+        onebot_role = QGuardRole.MEMBER
         if role == "owner":
-            return QGuardRole.GROUP_OWNER
-        if role == "admin":
-            return QGuardRole.GROUP_ADMIN
-        return QGuardRole.MEMBER
+            onebot_role = QGuardRole.GROUP_OWNER
+        elif role == "admin":
+            onebot_role = QGuardRole.GROUP_ADMIN
+        return max(plugin_role, onebot_role)
 
     async def can_operate(
         self,
@@ -75,4 +77,4 @@ class PermissionService:
         if await WhitelistRepo(self.session).is_whitelisted(group_id, user_id):
             return True
         role = await self.get_role(ops, group_id, user_id)
-        return role >= QGuardRole.GROUP_OWNER
+        return role >= QGuardRole.TRUSTED

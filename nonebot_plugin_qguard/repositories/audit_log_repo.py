@@ -1,4 +1,5 @@
 import json
+from collections.abc import Sequence
 from typing import Any
 
 from sqlalchemy import select
@@ -56,4 +57,21 @@ class AuditLogRepo:
             .order_by(AuditLog.id.desc())
             .limit(limit)
         )
+        return list(result)
+
+    async def by_actions(
+        self,
+        group_id: int,
+        actions: Sequence[AuditAction | str],
+        target_user_id: int | None = None,
+        limit: int = 10,
+    ) -> list[AuditLog]:
+        stmt = select(AuditLog).where(
+            AuditLog.group_id == group_id,
+            AuditLog.action.in_([str(action) for action in actions]),
+        )
+        if target_user_id is not None:
+            stmt = stmt.where(AuditLog.target_user_id == target_user_id)
+        stmt = stmt.order_by(AuditLog.id.desc()).limit(limit)
+        result = await self.session.scalars(stmt)
         return list(result)

@@ -17,10 +17,18 @@ def test_help_text_mentions_rule_commands() -> None:
     assert "/管 积分 清零 @用户" in HELP_TEXT
     assert "/管 白名单 添加 @用户 原因" in HELP_TEXT
     assert "/管 黑名单 添加 @用户 原因" in HELP_TEXT
+    assert "/管 角色 @用户 普通|可信|小管理" in HELP_TEXT
+    assert "/管 角色查 @用户" in HELP_TEXT
     assert "/管 入群审核 开" in HELP_TEXT
     assert "/管 入群暗号 设置 xxx" in HELP_TEXT
+    assert "/管 日志 @用户" in HELP_TEXT
+    assert "/管 名片日志 @用户" in HELP_TEXT
+    assert "/管 处罚日志 @用户" in HELP_TEXT
+    assert "/管 最近消息 @用户" in HELP_TEXT
     assert "/管 新人保护 开" in HELP_TEXT
     assert "/管 新人保护 时长 24h" in HELP_TEXT
+    assert "/管 新人禁链接 开|关" in HELP_TEXT
+    assert "/管 新人禁图片 开|关" in HELP_TEXT
     assert "/管 群名锁 开 新群名" in HELP_TEXT
     assert "/管 匿名锁 开 开|关" in HELP_TEXT
     assert "/管 巡检 权限" in HELP_TEXT

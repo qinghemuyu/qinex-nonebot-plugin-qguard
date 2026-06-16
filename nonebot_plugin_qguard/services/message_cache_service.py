@@ -46,3 +46,7 @@ class MessageCacheService:
         async with get_session() as session:
             await MessageCacheRepo(session).upsert(item)
             await session.commit()
+
+    async def latest_by_user(self, group_id: int, user_id: int, limit: int = 10) -> list[MessageCache]:
+        async with get_session() as session:
+            return await MessageCacheRepo(session).latest_by_user(group_id, user_id, limit=limit)

@@ -161,6 +161,12 @@ class GroupConfigRepo:
         await self.session.flush()
         return config
 
+    async def set_newbie_block_links(self, group_id: int, enabled: bool) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.newbie_block_links = enabled
+        await self.session.flush()
+        return config
+
     async def set_newbie_block_images(self, group_id: int, enabled: bool) -> GroupConfig:
         config = await self.get_or_create(group_id)
         config.newbie_block_images = enabled
