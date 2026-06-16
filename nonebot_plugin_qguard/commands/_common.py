@@ -1,3 +1,5 @@
+from typing import Any
+
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 
 from nonebot_plugin_qguard.adapter.onebot_v11_ops import OneBotV11GroupOps
@@ -19,6 +21,11 @@ def parse_qguard_args(event: GroupMessageEvent) -> list[str]:
 
 def make_ops(bot: Bot) -> OneBotV11GroupOps:
     return OneBotV11GroupOps(bot)
+
+
+async def finish_reply(matcher: Any, bot: Bot, event: GroupMessageEvent, message: str) -> None:
+    await make_ops(bot).send_group_msg(event.group_id, message)
+    await matcher.finish()
 
 
 async def ensure_manager(bot: Bot, event: GroupMessageEvent, required_role: QGuardRole = QGuardRole.GROUP_ADMIN) -> str | None:

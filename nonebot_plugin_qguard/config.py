@@ -14,6 +14,7 @@ class Config(BaseModel):
     qguard_enable_auto_moderation: bool = True
     qguard_enable_message_cache: bool = True
     qguard_command_prefix: str = DEFAULT_COMMAND_PREFIX
+    qguard_default_auto_delete_reply_seconds: int = 90
 
 
 def load_config() -> Config:

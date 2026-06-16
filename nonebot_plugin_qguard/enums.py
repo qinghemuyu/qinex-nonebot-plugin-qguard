@@ -28,6 +28,7 @@ class AuditAction(StrEnum):
     ADD_RULE = "add_rule"
     DELETE_RULE = "delete_rule"
     HIT_RULE = "hit_rule"
+    SET_AUTO_DELETE_REPLY = "set_auto_delete_reply"
     JOIN_APPROVE = "join_approve"
     JOIN_REJECT = "join_reject"
     PATROL = "patrol"

@@ -24,3 +24,4 @@ class GroupConfig(TimestampMixin, Base):
     newbie_protection_seconds: Mapped[int] = mapped_column(Integer, default=86400, nullable=False)
     newbie_block_links: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     newbie_block_images: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    auto_delete_reply_seconds: Mapped[int] = mapped_column(Integer, default=90, nullable=False)

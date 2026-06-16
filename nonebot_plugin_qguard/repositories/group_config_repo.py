@@ -50,6 +50,7 @@ class GroupConfigRepo:
             "newbie_protection_seconds": 86400,
             "newbie_block_links": False,
             "newbie_block_images": False,
+            "auto_delete_reply_seconds": plugin_config.qguard_default_auto_delete_reply_seconds,
             "created_at": now,
             "updated_at": now,
         }
@@ -100,6 +101,12 @@ class GroupConfigRepo:
     async def set_card_lock_enabled(self, group_id: int, enabled: bool) -> GroupConfig:
         config = await self.get_or_create(group_id)
         config.card_lock_enabled = enabled
+        await self.session.flush()
+        return config
+
+    async def set_auto_delete_reply_seconds(self, group_id: int, seconds: int) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.auto_delete_reply_seconds = seconds
         await self.session.flush()
         return config
 

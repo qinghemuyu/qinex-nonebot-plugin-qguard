@@ -10,7 +10,7 @@ from nonebot_plugin_qguard.repositories.rule_repo import RuleRepo
 from nonebot_plugin_qguard.services.rule_engine import MessageContext, RuleEngine
 from nonebot_plugin_qguard.utils.timeparse import parse_duration
 
-from ._common import ensure_manager, parse_qguard_args
+from ._common import ensure_manager, finish_reply, parse_qguard_args
 
 rule_matcher = on_message(priority=5, block=False)
 
@@ -22,44 +22,44 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         return
 
     if len(args) < 2:
-        await rule_matcher.finish("用法：/管 规则 添加|删除|列表|测试 ...")
+        await finish_reply(rule_matcher, bot, event, "用法：/管 规则 添加|删除|列表|测试 ...")
 
     if args[1] in {"添加", "删除"}:
         denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN)
         if denied:
-            await rule_matcher.finish(denied)
+            await finish_reply(rule_matcher, bot, event, denied)
 
     if args[1] == "添加":
-        await _handle_add_rule(event, args)
+        await _handle_add_rule(bot, event, args)
     elif args[1] == "删除":
-        await _handle_delete_rule(event, args)
+        await _handle_delete_rule(bot, event, args)
     elif args[1] == "列表":
-        await _handle_list_rules(event)
+        await _handle_list_rules(bot, event)
     elif args[1] == "测试":
-        await _handle_test_rule(event, args)
+        await _handle_test_rule(bot, event, args)
     else:
-        await rule_matcher.finish("未知规则命令。")
+        await finish_reply(rule_matcher, bot, event, "未知规则命令。")
 
 
-async def _handle_add_rule(event: GroupMessageEvent, args: list[str]) -> None:
+async def _handle_add_rule(bot: Bot, event: GroupMessageEvent, args: list[str]) -> None:
     if len(args) < 5:
-        await rule_matcher.finish("用法：/管 规则 添加 关键词 xxx 警告")
+        await finish_reply(rule_matcher, bot, event, "用法：/管 规则 添加 关键词 xxx 警告")
 
     try:
         rule_type = _parse_rule_type(args[2])
         action, mute_seconds, delete_message, action_tokens = _parse_rule_action(args[3:])
     except ValueError as exc:
-        await rule_matcher.finish(str(exc))
+        await finish_reply(rule_matcher, bot, event, str(exc))
 
     pattern_tokens = args[3 : len(args) - action_tokens]
     pattern = " ".join(pattern_tokens).strip()
     if not pattern:
-        await rule_matcher.finish("规则内容不能为空。")
+        await finish_reply(rule_matcher, bot, event, "规则内容不能为空。")
     if rule_type == RuleType.REGEX:
         try:
             re.compile(pattern)
         except re.error as exc:
-            await rule_matcher.finish(f"正则无效：{exc}")
+            await finish_reply(rule_matcher, bot, event, f"正则无效：{exc}")
 
     async with get_session() as session:
         item = await RuleRepo(session).create(
@@ -86,12 +86,12 @@ async def _handle_add_rule(event: GroupMessageEvent, args: list[str]) -> None:
             },
         )
         await session.commit()
-    await rule_matcher.finish(f"规则已添加：#{item.id}")
+    await finish_reply(rule_matcher, bot, event, f"规则已添加：#{item.id}")
 
 
-async def _handle_delete_rule(event: GroupMessageEvent, args: list[str]) -> None:
+async def _handle_delete_rule(bot: Bot, event: GroupMessageEvent, args: list[str]) -> None:
     if len(args) < 3 or not args[2].isdigit():
-        await rule_matcher.finish("用法：/管 规则 删除 ID")
+        await finish_reply(rule_matcher, bot, event, "用法：/管 规则 删除 ID")
     rule_id = int(args[2])
     async with get_session() as session:
         item = await RuleRepo(session).disable(rule_id, event.group_id)
@@ -104,26 +104,26 @@ async def _handle_delete_rule(event: GroupMessageEvent, args: list[str]) -> None
         )
         await session.commit()
     if item is None:
-        await rule_matcher.finish("没有找到这条规则。")
-    await rule_matcher.finish(f"规则 #{rule_id} 已删除。")
+        await finish_reply(rule_matcher, bot, event, "没有找到这条规则。")
+    await finish_reply(rule_matcher, bot, event, f"规则 #{rule_id} 已删除。")
 
 
-async def _handle_list_rules(event: GroupMessageEvent) -> None:
+async def _handle_list_rules(bot: Bot, event: GroupMessageEvent) -> None:
     async with get_session() as session:
         rules = await RuleRepo(session).list_all(event.group_id, limit=20)
     if not rules:
-        await rule_matcher.finish("当前没有规则。")
+        await finish_reply(rule_matcher, bot, event, "当前没有规则。")
     lines = ["规则列表："]
     for item in rules:
         status = "启用" if item.enabled else "停用"
         extra = f" {item.mute_seconds}s" if item.mute_seconds else ""
         lines.append(f"#{item.id} [{status}] {item.rule_type} {item.action}{extra}: {item.pattern}")
-    await rule_matcher.finish("\n".join(lines))
+    await finish_reply(rule_matcher, bot, event, "\n".join(lines))
 
 
-async def _handle_test_rule(event: GroupMessageEvent, args: list[str]) -> None:
+async def _handle_test_rule(bot: Bot, event: GroupMessageEvent, args: list[str]) -> None:
     if len(args) < 3:
-        await rule_matcher.finish("用法：/管 规则 测试 文本")
+        await finish_reply(rule_matcher, bot, event, "用法：/管 规则 测试 文本")
     text = " ".join(args[2:]).strip()
     decision = await RuleEngine().check(
         MessageContext(
@@ -135,8 +135,11 @@ async def _handle_test_rule(event: GroupMessageEvent, args: list[str]) -> None:
         )
     )
     if not decision.hit:
-        await rule_matcher.finish("未命中规则。")
-    await rule_matcher.finish(
+        await finish_reply(rule_matcher, bot, event, "未命中规则。")
+    await finish_reply(
+        rule_matcher,
+        bot,
+        event,
         f"命中规则 #{decision.rule_id}，动作：{decision.action}"
         + (f"，禁言 {decision.mute_seconds} 秒" if decision.mute_seconds else "")
     )

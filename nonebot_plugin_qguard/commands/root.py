@@ -4,8 +4,9 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 from nonebot_plugin_qguard.enums import QGuardRole
 from nonebot_plugin_qguard.services.group_config_service import GroupConfigService
 from nonebot_plugin_qguard.utils.formatter import format_group_status
+from nonebot_plugin_qguard.utils.timeparse import parse_duration
 
-from ._common import ensure_manager, parse_qguard_args
+from ._common import ensure_manager, finish_reply, parse_qguard_args
 
 root_matcher = on_message(priority=5, block=False)
 
@@ -14,6 +15,8 @@ HELP_TEXT = """QGuard 命令
 /管 状态
 /管 开启
 /管 关闭
+/管 自动撤回 90s
+/管 自动撤回 0
 /管 禁 @用户 10m 原因
 /管 解禁 @用户
 /管 踢 @用户 原因
@@ -42,20 +45,31 @@ HELP_TEXT = """QGuard 命令
 @root_matcher.handle()
 async def _(bot: Bot, event: GroupMessageEvent) -> None:
     args = parse_qguard_args(event)
-    if not args or args[0] not in {"帮助", "状态", "开启", "关闭"}:
+    if not args or args[0] not in {"帮助", "状态", "开启", "关闭", "自动撤回"}:
         return
     service = GroupConfigService()
     if args[0] == "帮助":
-        await root_matcher.finish(HELP_TEXT)
+        await finish_reply(root_matcher, bot, event, HELP_TEXT)
     if args[0] == "状态":
         config = await service.status(event.group_id)
-        await root_matcher.finish(format_group_status(config))
+        await finish_reply(root_matcher, bot, event, format_group_status(config))
     denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN)
     if denied:
-        await root_matcher.finish(denied)
+        await finish_reply(root_matcher, bot, event, denied)
     if args[0] == "开启":
         result = await service.set_enabled(event.group_id, event.user_id, True)
-        await root_matcher.finish(result.message)
+        await finish_reply(root_matcher, bot, event, result.message)
     if args[0] == "关闭":
         result = await service.set_enabled(event.group_id, event.user_id, False)
-        await root_matcher.finish(result.message)
+        await finish_reply(root_matcher, bot, event, result.message)
+    if args[0] == "自动撤回":
+        if len(args) < 2:
+            config = await service.status(event.group_id)
+            current = "关闭" if config.auto_delete_reply_seconds <= 0 else f"{config.auto_delete_reply_seconds} 秒"
+            await finish_reply(root_matcher, bot, event, f"当前自动撤回：{current}。\n用法：/管 自动撤回 90s，关闭用 /管 自动撤回 0")
+        try:
+            seconds = parse_duration(args[1])
+        except ValueError as exc:
+            await finish_reply(root_matcher, bot, event, str(exc))
+        result = await service.set_auto_delete_reply_seconds(event.group_id, event.user_id, seconds)
+        await finish_reply(root_matcher, bot, event, result.message)

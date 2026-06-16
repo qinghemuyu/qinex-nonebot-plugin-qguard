@@ -4,6 +4,8 @@ from typing import Any, TypeVar
 from nonebot.adapters.onebot.v11 import Bot
 from nonebot.adapters.onebot.v11.exception import ActionFailed, NetworkError
 
+from nonebot_plugin_qguard.services.auto_recall_service import schedule_auto_recall
+
 from .group_ops import GroupOps
 
 T = TypeVar("T")
@@ -24,7 +26,9 @@ class OneBotV11GroupOps(GroupOps):
             raise QGuardActionError(str(exc)) from exc
 
     async def send_group_msg(self, group_id: int, message: str) -> Any:
-        return await self._call(self.bot.send_group_msg, group_id=group_id, message=message)
+        result = await self._call(self.bot.send_group_msg, group_id=group_id, message=message)
+        await schedule_auto_recall(self.bot, group_id, result)
+        return result
 
     async def delete_msg(self, message_id: int) -> None:
         await self._call(self.bot.delete_msg, message_id=message_id)

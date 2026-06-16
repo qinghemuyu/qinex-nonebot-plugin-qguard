@@ -45,3 +45,26 @@ class GroupConfigService:
                 action="set_card_lock_enabled",
                 message=f"名片锁全群巡检已{'开启' if config.card_lock_enabled else '关闭'}。",
             )
+
+    async def set_auto_delete_reply_seconds(self, group_id: int, operator_id: int, seconds: int) -> ActionResult:
+        seconds = max(0, seconds)
+        async with get_session() as session:
+            config = await GroupConfigRepo(session).set_auto_delete_reply_seconds(group_id, seconds)
+            await AuditLogRepo(session).create(
+                group_id=group_id,
+                operator_id=operator_id,
+                action=AuditAction.SET_AUTO_DELETE_REPLY,
+                result=AuditResult.SUCCESS,
+                metadata={"auto_delete_reply_seconds": seconds},
+            )
+            await session.commit()
+            message = (
+                "自动撤回已关闭。"
+                if config.auto_delete_reply_seconds <= 0
+                else f"自动撤回已设置为 {config.auto_delete_reply_seconds} 秒；机器人非管理时实际最多 110 秒。"
+            )
+            return ActionResult(
+                success=True,
+                action=str(AuditAction.SET_AUTO_DELETE_REPLY),
+                message=message,
+            )
