@@ -11,3 +11,5 @@ def test_help_text_mentions_rule_commands() -> None:
     assert "/管 自动撤回 0" in HELP_TEXT
     assert "/管 白名单 添加 @用户 原因" in HELP_TEXT
     assert "/管 黑名单 添加 @用户 原因" in HELP_TEXT
+    assert "/管 入群审核 开" in HELP_TEXT
+    assert "/管 入群暗号 设置 xxx" in HELP_TEXT

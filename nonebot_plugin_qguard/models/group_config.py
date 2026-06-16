@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Boolean, Integer
+from sqlalchemy import BigInteger, Boolean, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin
@@ -15,6 +15,8 @@ class GroupConfig(TimestampMixin, Base):
     keyword_check_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     new_member_protection_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     join_review_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    join_review_answer: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    join_review_reject_reason: Mapped[str] = mapped_column(Text, default="入群验证未通过。", nullable=False)
     card_lock_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     group_name_lock_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     anonymous_lock_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

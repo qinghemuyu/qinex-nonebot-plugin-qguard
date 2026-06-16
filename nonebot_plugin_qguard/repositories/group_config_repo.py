@@ -41,6 +41,8 @@ class GroupConfigRepo:
             "keyword_check_enabled": True,
             "new_member_protection_enabled": False,
             "join_review_enabled": False,
+            "join_review_answer": "",
+            "join_review_reject_reason": "入群验证未通过。",
             "card_lock_enabled": True,
             "group_name_lock_enabled": False,
             "anonymous_lock_enabled": False,
@@ -107,6 +109,24 @@ class GroupConfigRepo:
     async def set_auto_delete_reply_seconds(self, group_id: int, seconds: int) -> GroupConfig:
         config = await self.get_or_create(group_id)
         config.auto_delete_reply_seconds = seconds
+        await self.session.flush()
+        return config
+
+    async def set_join_review_enabled(self, group_id: int, enabled: bool) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.join_review_enabled = enabled
+        await self.session.flush()
+        return config
+
+    async def set_join_review_answer(self, group_id: int, answer: str) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.join_review_answer = answer
+        await self.session.flush()
+        return config
+
+    async def set_join_review_reject_reason(self, group_id: int, reason: str) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.join_review_reject_reason = reason
         await self.session.flush()
         return config
 

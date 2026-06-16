@@ -103,6 +103,18 @@ async def _migrate_sqlite_schema(conn: AsyncConnection) -> None:
     )
     await _add_sqlite_column_if_missing(
         conn,
+        "group_config",
+        "join_review_answer",
+        "TEXT NOT NULL DEFAULT ''",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "group_config",
+        "join_review_reject_reason",
+        "TEXT NOT NULL DEFAULT '入群验证未通过。'",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
         "audit_log",
         "updated_at",
         "DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00'",
