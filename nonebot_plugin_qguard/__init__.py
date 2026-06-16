@@ -20,6 +20,7 @@ from .commands import blacklist as blacklist  # noqa: E402,F401
 from .commands import card as card  # noqa: E402,F401
 from .commands import card_lock as card_lock  # noqa: E402,F401
 from .commands import join_review as join_review  # noqa: E402,F401
+from .commands import newbie as newbie  # noqa: E402,F401
 from .commands import punish as punish  # noqa: E402,F401
 from .commands import rule as rule  # noqa: E402,F401
 from .commands import root as root  # noqa: E402,F401

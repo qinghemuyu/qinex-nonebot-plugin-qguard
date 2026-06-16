@@ -50,7 +50,7 @@ class GroupConfigRepo:
             "default_mute_seconds": 600,
             "card_lock_patrol_interval_seconds": 600,
             "newbie_protection_seconds": 86400,
-            "newbie_block_links": False,
+            "newbie_block_links": True,
             "newbie_block_images": False,
             "auto_delete_reply_seconds": plugin_config.qguard_default_auto_delete_reply_seconds,
             "created_at": now,
@@ -127,6 +127,26 @@ class GroupConfigRepo:
     async def set_join_review_reject_reason(self, group_id: int, reason: str) -> GroupConfig:
         config = await self.get_or_create(group_id)
         config.join_review_reject_reason = reason
+        await self.session.flush()
+        return config
+
+    async def set_new_member_protection_enabled(self, group_id: int, enabled: bool) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.new_member_protection_enabled = enabled
+        if enabled:
+            config.newbie_block_links = True
+        await self.session.flush()
+        return config
+
+    async def set_newbie_protection_seconds(self, group_id: int, seconds: int) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.newbie_protection_seconds = seconds
+        await self.session.flush()
+        return config
+
+    async def set_newbie_block_images(self, group_id: int, enabled: bool) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.newbie_block_images = enabled
         await self.session.flush()
         return config
 

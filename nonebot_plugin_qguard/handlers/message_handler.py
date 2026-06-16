@@ -13,6 +13,7 @@ from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.repositories.audit_log_repo import AuditLogRepo
 from nonebot_plugin_qguard.services.card_lock_service import CardLockService
 from nonebot_plugin_qguard.services.message_cache_service import MessageCacheService
+from nonebot_plugin_qguard.services.newbie_protection_service import NewbieProtectionService
 from nonebot_plugin_qguard.services.permission_service import PermissionService
 from nonebot_plugin_qguard.services.punishment_service import PunishmentService
 from nonebot_plugin_qguard.services.rule_engine import MessageContext, ModerationDecision, RuleEngine
@@ -29,10 +30,17 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
     except Exception as exc:
         logger.warning("QGuard message cache failed: {}", exc)
 
+    newbie_handled = False
     try:
-        await _run_auto_moderation(bot, event)
+        newbie_handled = await NewbieProtectionService().handle_message(OneBotV11GroupOps(bot), _bot_id(bot), event)
     except Exception as exc:
-        logger.warning("QGuard auto moderation failed: {}", exc)
+        logger.warning("QGuard newbie protection failed: {}", exc)
+
+    if not newbie_handled:
+        try:
+            await _run_auto_moderation(bot, event)
+        except Exception as exc:
+            logger.warning("QGuard auto moderation failed: {}", exc)
 
     try:
         await CardLockService().repair_member(

@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,5 +47,20 @@ class MemberRepo:
     async def add_kick(self, group_id: int, user_id: int) -> MemberProfile:
         profile = await self.get_or_create(group_id, user_id)
         profile.kick_count += 1
+        await self.session.flush()
+        return profile
+
+    async def mark_joined(self, group_id: int, user_id: int, newbie_seconds: int = 0) -> MemberProfile:
+        profile = await self.get_or_create(group_id, user_id)
+        now = datetime.utcnow()
+        profile.join_time = now
+        profile.last_active_at = now
+        profile.newbie_until = now + timedelta(seconds=newbie_seconds) if newbie_seconds > 0 else None
+        await self.session.flush()
+        return profile
+
+    async def touch_active(self, group_id: int, user_id: int) -> MemberProfile:
+        profile = await self.get_or_create(group_id, user_id)
+        profile.last_active_at = datetime.utcnow()
         await self.session.flush()
         return profile

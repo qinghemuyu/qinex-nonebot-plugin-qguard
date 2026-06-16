@@ -13,3 +13,5 @@ def test_help_text_mentions_rule_commands() -> None:
     assert "/管 黑名单 添加 @用户 原因" in HELP_TEXT
     assert "/管 入群审核 开" in HELP_TEXT
     assert "/管 入群暗号 设置 xxx" in HELP_TEXT
+    assert "/管 新人保护 开" in HELP_TEXT
+    assert "/管 新人保护 时长 24h" in HELP_TEXT

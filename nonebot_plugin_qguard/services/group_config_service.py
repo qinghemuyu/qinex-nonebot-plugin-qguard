@@ -68,3 +68,55 @@ class GroupConfigService:
                 action=str(AuditAction.SET_AUTO_DELETE_REPLY),
                 message=message,
             )
+
+    async def set_new_member_protection_enabled(self, group_id: int, operator_id: int, enabled: bool) -> ActionResult:
+        async with get_session() as session:
+            config = await GroupConfigRepo(session).set_new_member_protection_enabled(group_id, enabled)
+            await AuditLogRepo(session).create(
+                group_id=group_id,
+                operator_id=operator_id,
+                action=AuditAction.SET_NEWBIE_PROTECTION,
+                result=AuditResult.SUCCESS,
+                metadata={"new_member_protection_enabled": enabled},
+            )
+            await session.commit()
+            return ActionResult(
+                success=True,
+                action=str(AuditAction.SET_NEWBIE_PROTECTION),
+                message=f"新人保护已{'开启' if config.new_member_protection_enabled else '关闭'}。",
+            )
+
+    async def set_newbie_protection_seconds(self, group_id: int, operator_id: int, seconds: int) -> ActionResult:
+        seconds = max(0, seconds)
+        async with get_session() as session:
+            config = await GroupConfigRepo(session).set_newbie_protection_seconds(group_id, seconds)
+            await AuditLogRepo(session).create(
+                group_id=group_id,
+                operator_id=operator_id,
+                action=AuditAction.SET_NEWBIE_PROTECTION_DURATION,
+                result=AuditResult.SUCCESS,
+                metadata={"newbie_protection_seconds": seconds},
+            )
+            await session.commit()
+            return ActionResult(
+                success=True,
+                action=str(AuditAction.SET_NEWBIE_PROTECTION_DURATION),
+                message=f"新人保护时长已设置为 {config.newbie_protection_seconds} 秒。",
+            )
+
+    async def set_newbie_block_images(self, group_id: int, operator_id: int, enabled: bool) -> ActionResult:
+        async with get_session() as session:
+            config = await GroupConfigRepo(session).set_newbie_block_images(group_id, enabled)
+            await AuditLogRepo(session).create(
+                group_id=group_id,
+                operator_id=operator_id,
+                action=AuditAction.SET_NEWBIE_PROTECTION_IMAGE,
+                result=AuditResult.SUCCESS,
+                metadata={"newbie_block_images": enabled},
+            )
+            await session.commit()
+            return ActionResult(
+                success=True,
+                action=str(AuditAction.SET_NEWBIE_PROTECTION_IMAGE),
+                message=f"新人图片拦截已{'开启' if config.newbie_block_images else '关闭'}。",
+            )
