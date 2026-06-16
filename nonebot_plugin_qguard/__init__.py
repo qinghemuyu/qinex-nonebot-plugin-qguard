@@ -32,3 +32,4 @@ from .handlers import notice_handler as notice_handler  # noqa: E402,F401
 from .handlers import request_handler as request_handler  # noqa: E402,F401
 from .scheduler import card_lock_jobs as card_lock_jobs  # noqa: E402,F401
 from .scheduler import cleanup_jobs as cleanup_jobs  # noqa: E402,F401
+from .scheduler import patrol_jobs as patrol_jobs  # noqa: E402,F401

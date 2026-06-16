@@ -11,12 +11,16 @@ def format_group_status(config: GroupConfig) -> str:
     newbie_rule_text = "、".join(newbie_rules) if newbie_rules else "未拦截"
     group_name_lock_text = f"是（{config.locked_group_name}）" if config.group_name_lock_enabled else "否"
     anonymous_lock_text = f"是（{'开' if config.anonymous_enabled else '关'}）" if config.anonymous_lock_enabled else "否"
+    auto_patrol_text = (
+        f"是（{config.auto_patrol_interval_seconds} 秒）" if config.auto_patrol_enabled else "否"
+    )
     return (
         "QGuard 状态\n"
         f"插件启用：{'是' if config.enabled else '否'}\n"
         f"名片锁：{'是' if config.card_lock_enabled else '否'}\n"
         f"群名锁：{group_name_lock_text}\n"
         f"匿名锁：{anonymous_lock_text}\n"
+        f"自动巡检：{auto_patrol_text}\n"
         f"入群审核：{'是' if config.join_review_enabled else '否'}（暗号{join_answer_text}）\n"
         f"新人保护：{'是' if config.new_member_protection_enabled else '否'}（{config.newbie_protection_seconds} 秒，拦截{newbie_rule_text}）\n"
         f"自动审核：{'是' if config.auto_moderation_enabled else '否'}\n"

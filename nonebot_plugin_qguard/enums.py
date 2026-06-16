@@ -53,6 +53,8 @@ class AuditAction(StrEnum):
     LOCK_ANONYMOUS = "lock_anonymous"
     UNLOCK_ANONYMOUS = "unlock_anonymous"
     SET_SPECIAL_TITLE = "set_special_title"
+    SET_AUTO_PATROL = "set_auto_patrol"
+    SET_AUTO_PATROL_INTERVAL = "set_auto_patrol_interval"
     PATROL = "patrol"
     PERMISSION_DENIED = "permission_denied"
     QUERY_USER = "query_user"

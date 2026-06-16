@@ -120,3 +120,38 @@ class GroupConfigService:
                 action=str(AuditAction.SET_NEWBIE_PROTECTION_IMAGE),
                 message=f"新人图片拦截已{'开启' if config.newbie_block_images else '关闭'}。",
             )
+
+    async def set_auto_patrol_enabled(self, group_id: int, operator_id: int, enabled: bool) -> ActionResult:
+        async with get_session() as session:
+            config = await GroupConfigRepo(session).set_auto_patrol_enabled(group_id, enabled)
+            await AuditLogRepo(session).create(
+                group_id=group_id,
+                operator_id=operator_id,
+                action=AuditAction.SET_AUTO_PATROL,
+                result=AuditResult.SUCCESS,
+                metadata={"auto_patrol_enabled": enabled},
+            )
+            await session.commit()
+            return ActionResult(
+                success=True,
+                action=str(AuditAction.SET_AUTO_PATROL),
+                message=f"自动巡检已{'开启' if config.auto_patrol_enabled else '关闭'}。",
+            )
+
+    async def set_auto_patrol_interval_seconds(self, group_id: int, operator_id: int, seconds: int) -> ActionResult:
+        seconds = max(60, seconds)
+        async with get_session() as session:
+            config = await GroupConfigRepo(session).set_auto_patrol_interval_seconds(group_id, seconds)
+            await AuditLogRepo(session).create(
+                group_id=group_id,
+                operator_id=operator_id,
+                action=AuditAction.SET_AUTO_PATROL_INTERVAL,
+                result=AuditResult.SUCCESS,
+                metadata={"auto_patrol_interval_seconds": seconds},
+            )
+            await session.commit()
+            return ActionResult(
+                success=True,
+                action=str(AuditAction.SET_AUTO_PATROL_INTERVAL),
+                message=f"自动巡检间隔已设置为 {config.auto_patrol_interval_seconds} 秒。",
+            )

@@ -1,4 +1,6 @@
-from sqlalchemy import BigInteger, Boolean, Integer, Text
+from datetime import datetime
+
+from sqlalchemy import BigInteger, Boolean, DateTime, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin
@@ -25,6 +27,9 @@ class GroupConfig(TimestampMixin, Base):
     message_cache_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     default_mute_seconds: Mapped[int] = mapped_column(Integer, default=600, nullable=False)
     card_lock_patrol_interval_seconds: Mapped[int] = mapped_column(Integer, default=600, nullable=False)
+    auto_patrol_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    auto_patrol_interval_seconds: Mapped[int] = mapped_column(Integer, default=1800, nullable=False)
+    last_auto_patrol_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     newbie_protection_seconds: Mapped[int] = mapped_column(Integer, default=86400, nullable=False)
     newbie_block_links: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     newbie_block_images: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

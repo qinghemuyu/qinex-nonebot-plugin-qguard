@@ -3,8 +3,10 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 
 from nonebot_plugin_qguard.enums import QGuardRole
 from nonebot_plugin_qguard.services.group_setting_service import GroupSettingService
+from nonebot_plugin_qguard.services.group_config_service import GroupConfigService
 from nonebot_plugin_qguard.services.patrol_service import PatrolService
 from nonebot_plugin_qguard.utils.message_parser import parse_target
+from nonebot_plugin_qguard.utils.timeparse import parse_duration
 
 from ._common import ensure_manager, finish_reply, make_ops, parse_qguard_args
 
@@ -14,7 +16,7 @@ group_setting_matcher = on_message(priority=5, block=False)
 @group_setting_matcher.handle()
 async def _(bot: Bot, event: GroupMessageEvent) -> None:
     args = parse_qguard_args(event)
-    if not args or args[0] not in {"群名", "群名锁", "群名修复", "匿名", "匿名锁", "头衔", "巡检"}:
+    if not args or args[0] not in {"群名", "群名锁", "群名修复", "匿名", "匿名锁", "头衔", "巡检", "自动巡检"}:
         return
 
     denied = await ensure_manager(bot, event, QGuardRole.GROUP_OWNER)
@@ -76,6 +78,24 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
             result = await PatrolService().patrol_group_settings(ops, event.group_id, event.user_id)
             await finish_reply(group_setting_matcher, bot, event, result.message)
         await finish_reply(group_setting_matcher, bot, event, "用法：/管 巡检，/管 巡检 名片，/管 巡检 权限")
+
+    if args[0] == "自动巡检":
+        if len(args) < 2:
+            await finish_reply(group_setting_matcher, bot, event, "用法：/管 自动巡检 开|关，/管 自动巡检 间隔 10m")
+        config_service = GroupConfigService()
+        if args[1] in {"开", "关"}:
+            result = await config_service.set_auto_patrol_enabled(event.group_id, event.user_id, args[1] == "开")
+            await finish_reply(group_setting_matcher, bot, event, result.message)
+        if args[1] == "间隔":
+            if len(args) < 3:
+                await finish_reply(group_setting_matcher, bot, event, "用法：/管 自动巡检 间隔 10m")
+            try:
+                seconds = parse_duration(args[2])
+            except ValueError as exc:
+                await finish_reply(group_setting_matcher, bot, event, str(exc))
+            result = await config_service.set_auto_patrol_interval_seconds(event.group_id, event.user_id, seconds)
+            await finish_reply(group_setting_matcher, bot, event, result.message)
+        await finish_reply(group_setting_matcher, bot, event, "用法：/管 自动巡检 开|关，/管 自动巡检 间隔 10m")
 
 
 def _bot_id(bot: Bot) -> int | None:

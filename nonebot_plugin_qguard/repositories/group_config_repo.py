@@ -51,6 +51,9 @@ class GroupConfigRepo:
             "message_cache_enabled": True,
             "default_mute_seconds": 600,
             "card_lock_patrol_interval_seconds": 600,
+            "auto_patrol_enabled": False,
+            "auto_patrol_interval_seconds": plugin_config.qguard_auto_patrol_interval_seconds,
+            "last_auto_patrol_at": None,
             "newbie_protection_seconds": 86400,
             "newbie_block_links": True,
             "newbie_block_images": False,
@@ -166,6 +169,42 @@ class GroupConfigRepo:
             config.anonymous_enabled = anonymous_enabled
         await self.session.flush()
         return config
+
+    async def set_auto_patrol_enabled(self, group_id: int, enabled: bool) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.auto_patrol_enabled = enabled
+        if enabled:
+            config.last_auto_patrol_at = None
+        await self.session.flush()
+        return config
+
+    async def set_auto_patrol_interval_seconds(self, group_id: int, seconds: int) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.auto_patrol_interval_seconds = seconds
+        await self.session.flush()
+        return config
+
+    async def mark_auto_patrol_ran(self, group_id: int, when: datetime | None = None) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.last_auto_patrol_at = when or datetime.utcnow()
+        await self.session.flush()
+        return config
+
+    async def list_auto_patrol_enabled_groups(self) -> list[GroupConfig]:
+        result = await self.session.scalars(
+            select(GroupConfig).where(GroupConfig.enabled.is_(True), GroupConfig.auto_patrol_enabled.is_(True))
+        )
+        return list(result)
+
+    async def list_auto_patrol_due_groups(self, now: datetime | None = None) -> list[GroupConfig]:
+        now = now or datetime.utcnow()
+        configs = await self.list_auto_patrol_enabled_groups()
+        return [
+            config
+            for config in configs
+            if config.last_auto_patrol_at is None
+            or (now - config.last_auto_patrol_at).total_seconds() >= config.auto_patrol_interval_seconds
+        ]
 
     async def list_card_lock_enabled_groups(self) -> list[GroupConfig]:
         result = await self.session.scalars(
