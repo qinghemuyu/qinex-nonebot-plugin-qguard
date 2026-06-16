@@ -45,7 +45,9 @@ class GroupConfigRepo:
             "join_review_reject_reason": "入群验证未通过。",
             "card_lock_enabled": True,
             "group_name_lock_enabled": False,
+            "locked_group_name": "",
             "anonymous_lock_enabled": False,
+            "anonymous_enabled": False,
             "message_cache_enabled": True,
             "default_mute_seconds": 600,
             "card_lock_patrol_interval_seconds": 600,
@@ -147,6 +149,21 @@ class GroupConfigRepo:
     async def set_newbie_block_images(self, group_id: int, enabled: bool) -> GroupConfig:
         config = await self.get_or_create(group_id)
         config.newbie_block_images = enabled
+        await self.session.flush()
+        return config
+
+    async def set_group_name_lock(self, group_id: int, enabled: bool, locked_name: str = "") -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.group_name_lock_enabled = enabled
+        config.locked_group_name = locked_name if enabled else ""
+        await self.session.flush()
+        return config
+
+    async def set_anonymous_lock(self, group_id: int, enabled: bool, anonymous_enabled: bool = False) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.anonymous_lock_enabled = enabled
+        if enabled:
+            config.anonymous_enabled = anonymous_enabled
         await self.session.flush()
         return config
 
