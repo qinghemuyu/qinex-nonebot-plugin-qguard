@@ -221,9 +221,51 @@ class GroupSettingService:
         operator_id: int,
         user_id: int,
         title: str,
+        bot_user_id: int | None = None,
     ) -> ActionResult:
         title = title.strip()
         async with get_session() as session:
+            if bot_user_id is not None:
+                try:
+                    bot_info = await ops.get_group_member_info(group_id, bot_user_id, no_cache=True)
+                except Exception as exc:
+                    await AuditLogRepo(session).create(
+                        group_id=group_id,
+                        operator_id=operator_id,
+                        target_user_id=user_id,
+                        action=AuditAction.SET_SPECIAL_TITLE,
+                        result=AuditResult.FAILED,
+                        error_message=str(exc),
+                        metadata={"title": title, "check_bot_role": True},
+                    )
+                    await session.commit()
+                    return ActionResult(
+                        success=False,
+                        action=str(AuditAction.SET_SPECIAL_TITLE),
+                        message=f"查询机器人群身份失败，无法确认能否设置头衔：{exc}",
+                        error=str(exc),
+                    )
+
+                bot_role = str(bot_info.get("role") or "")
+                if bot_role != "owner":
+                    reason = f"专属头衔只有群主能设置，机器人当前角色是 {bot_role or '未知'}。"
+                    await AuditLogRepo(session).create(
+                        group_id=group_id,
+                        operator_id=operator_id,
+                        target_user_id=user_id,
+                        action=AuditAction.SET_SPECIAL_TITLE,
+                        result=AuditResult.SKIPPED,
+                        reason=reason,
+                        metadata={"title": title, "bot_role": bot_role},
+                    )
+                    await session.commit()
+                    return ActionResult(
+                        success=False,
+                        action=str(AuditAction.SET_SPECIAL_TITLE),
+                        message=reason,
+                        error=reason,
+                    )
+
             try:
                 await ops.set_special_title(group_id, user_id, title)
                 await AuditLogRepo(session).create(

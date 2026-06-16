@@ -62,7 +62,7 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         parsed = parse_target(event, args)
         if parsed is None or not parsed.rest:
             await finish_reply(group_setting_matcher, bot, event, "用法：/管 头衔 @用户 头衔")
-        result = await service.set_special_title(ops, event.group_id, event.user_id, parsed.user_id, parsed.rest)
+        result = await service.set_special_title(ops, event.group_id, event.user_id, parsed.user_id, parsed.rest, _bot_id(bot))
         await finish_reply(group_setting_matcher, bot, event, result.message)
 
     if args[0] == "巡检":
@@ -76,3 +76,10 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
             result = await PatrolService().patrol_group_settings(ops, event.group_id, event.user_id)
             await finish_reply(group_setting_matcher, bot, event, result.message)
         await finish_reply(group_setting_matcher, bot, event, "用法：/管 巡检，/管 巡检 名片，/管 巡检 权限")
+
+
+def _bot_id(bot: Bot) -> int | None:
+    try:
+        return int(bot.self_id)
+    except (TypeError, ValueError):
+        return None
