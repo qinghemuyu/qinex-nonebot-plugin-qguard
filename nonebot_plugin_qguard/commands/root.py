@@ -69,7 +69,7 @@ HELP_TEXT = """QGuard 命令
 /管 巡检 权限
 /管 自动巡检 开
 /管 自动巡检 关
-/管 自动巡检 间隔 10m"""
+/管 自动巡检 间隔 5s"""
 
 
 @root_matcher.handle()

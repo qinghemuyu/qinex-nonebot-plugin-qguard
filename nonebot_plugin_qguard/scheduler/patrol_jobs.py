@@ -11,7 +11,7 @@ from nonebot_plugin_qguard.repositories.group_config_repo import GroupConfigRepo
 from nonebot_plugin_qguard.services.patrol_service import PatrolService
 
 
-@scheduler.scheduled_job("interval", seconds=60, id="qguard_auto_patrol")
+@scheduler.scheduled_job("interval", seconds=5, id="qguard_auto_patrol", max_instances=1, coalesce=True)
 async def auto_patrol_job() -> None:
     bots = [bot for bot in get_bots().values() if isinstance(bot, Bot)]
     if not bots:

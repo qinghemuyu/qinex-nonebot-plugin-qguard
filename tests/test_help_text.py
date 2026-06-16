@@ -21,4 +21,4 @@ def test_help_text_mentions_rule_commands() -> None:
     assert "/管 匿名锁 开 开|关" in HELP_TEXT
     assert "/管 巡检 权限" in HELP_TEXT
     assert "/管 自动巡检 开" in HELP_TEXT
-    assert "/管 自动巡检 间隔 10m" in HELP_TEXT
+    assert "/管 自动巡检 间隔 5s" in HELP_TEXT

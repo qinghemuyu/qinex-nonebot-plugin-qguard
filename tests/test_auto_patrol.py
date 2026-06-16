@@ -38,4 +38,4 @@ async def test_auto_patrol_interval_minimum() -> None:
 
     async with get_session() as session:
         config = await GroupConfigRepo(session).get_or_create(group_id)
-        assert config.auto_patrol_interval_seconds == 60
+        assert config.auto_patrol_interval_seconds == 5

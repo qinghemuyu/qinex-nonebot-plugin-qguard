@@ -139,7 +139,7 @@ class GroupConfigService:
             )
 
     async def set_auto_patrol_interval_seconds(self, group_id: int, operator_id: int, seconds: int) -> ActionResult:
-        seconds = max(60, seconds)
+        seconds = max(5, seconds)
         async with get_session() as session:
             config = await GroupConfigRepo(session).set_auto_patrol_interval_seconds(group_id, seconds)
             await AuditLogRepo(session).create(

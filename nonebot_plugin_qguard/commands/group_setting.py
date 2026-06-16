@@ -81,21 +81,21 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
 
     if args[0] == "自动巡检":
         if len(args) < 2:
-            await finish_reply(group_setting_matcher, bot, event, "用法：/管 自动巡检 开|关，/管 自动巡检 间隔 10m")
+            await finish_reply(group_setting_matcher, bot, event, "用法：/管 自动巡检 开|关，/管 自动巡检 间隔 5s")
         config_service = GroupConfigService()
         if args[1] in {"开", "关"}:
             result = await config_service.set_auto_patrol_enabled(event.group_id, event.user_id, args[1] == "开")
             await finish_reply(group_setting_matcher, bot, event, result.message)
         if args[1] == "间隔":
             if len(args) < 3:
-                await finish_reply(group_setting_matcher, bot, event, "用法：/管 自动巡检 间隔 10m")
+                await finish_reply(group_setting_matcher, bot, event, "用法：/管 自动巡检 间隔 5s")
             try:
                 seconds = parse_duration(args[2])
             except ValueError as exc:
                 await finish_reply(group_setting_matcher, bot, event, str(exc))
             result = await config_service.set_auto_patrol_interval_seconds(event.group_id, event.user_id, seconds)
             await finish_reply(group_setting_matcher, bot, event, result.message)
-        await finish_reply(group_setting_matcher, bot, event, "用法：/管 自动巡检 开|关，/管 自动巡检 间隔 10m")
+        await finish_reply(group_setting_matcher, bot, event, "用法：/管 自动巡检 开|关，/管 自动巡检 间隔 5s")
 
 
 def _bot_id(bot: Bot) -> int | None:
