@@ -4,7 +4,8 @@ from datetime import datetime
 from pathlib import Path
 
 from nonebot import get_driver
-from sqlalchemy import DateTime
+from sqlalchemy import DateTime, text
+from sqlalchemy.ext.asyncio import AsyncConnection
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -53,3 +54,38 @@ async def init_db() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if plugin_config.qguard_db_url.startswith("sqlite"):
+            await _migrate_sqlite_schema(conn)
+
+
+async def _migrate_sqlite_schema(conn: AsyncConnection) -> None:
+    await _add_sqlite_column_if_missing(
+        conn,
+        "card_lock",
+        "failure_count",
+        "INTEGER NOT NULL DEFAULT 0",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "card_lock",
+        "last_fixed_by_plugin_at",
+        "DATETIME NULL",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "message_cache",
+        "updated_at",
+        "DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00'",
+    )
+
+
+async def _add_sqlite_column_if_missing(
+    conn: AsyncConnection,
+    table_name: str,
+    column_name: str,
+    column_definition: str,
+) -> None:
+    result = await conn.execute(text(f"PRAGMA table_info({table_name})"))
+    columns = {row[1] for row in result}
+    if column_name not in columns:
+        await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"))
