@@ -41,7 +41,8 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN)
         if denied:
             await card_lock_matcher.finish(denied)
-        result = await service.scan_group(ops, event.group_id, event.user_id, fix=args[0] == "名片修复")
+        should_fix = args[0] == "名片修复"
+        result = await service.scan_group(ops, event.group_id, event.user_id, fix=should_fix, force=should_fix)
         await card_lock_matcher.finish(
             f"扫描完成：检查 {result.scanned} 人，异常 {result.mismatched} 人，修复 {result.fixed} 人，失败 {result.failed} 人。"
         )

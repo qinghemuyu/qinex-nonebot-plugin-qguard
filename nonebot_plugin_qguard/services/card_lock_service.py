@@ -108,6 +108,7 @@ class CardLockService:
         operator_id: int | None = None,
         current_card: str | None = None,
         from_event: bool = False,
+        force: bool = False,
     ) -> bool:
         if from_event and should_ignore_card_event(group_id, user_id):
             return False
@@ -120,11 +121,10 @@ class CardLockService:
                 item = await CardLockRepo(session).get(group_id, user_id)
                 if item is None or not item.enabled:
                     return False
-                if item.failure_count >= CARD_LOCK_MAX_FAILURES:
+                if item.failure_count >= CARD_LOCK_MAX_FAILURES and not force:
                     return False
                 if current_card is None:
-                    info = await ops.get_group_member_info(group_id, user_id)
-                    current_card = str(info.get("card") or "")
+                    current_card = await self._get_current_card(ops, group_id, user_id)
                 if current_card == item.locked_card:
                     await CardLockRepo(session).mark_seen(item, current_card)
                     await session.commit()
@@ -157,9 +157,18 @@ class CardLockService:
                     await session.commit()
                     return False
 
-    async def scan_group(self, ops: GroupOps, group_id: int, operator_id: int | None = None, fix: bool = False) -> CardScanResult:
-        members = await ops.get_group_member_list(group_id)
-        cards = {int(item["user_id"]): str(item.get("card") or "") for item in members if "user_id" in item}
+    async def _get_current_card(self, ops: GroupOps, group_id: int, user_id: int) -> str:
+        info = await ops.get_group_member_info(group_id, user_id, no_cache=True)
+        return str(info.get("card") or "")
+
+    async def scan_group(
+        self,
+        ops: GroupOps,
+        group_id: int,
+        operator_id: int | None = None,
+        fix: bool = False,
+        force: bool = False,
+    ) -> CardScanResult:
         async with get_session() as session:
             locks = await CardLockRepo(session).list_enabled(group_id, limit=1000)
         scanned = 0
@@ -168,13 +177,17 @@ class CardLockService:
         mismatched = 0
         for item in locks:
             scanned += 1
-            current_card = cards.get(item.user_id, "")
+            try:
+                current_card = await self._get_current_card(ops, group_id, item.user_id)
+            except Exception:
+                failed += 1
+                continue
             if current_card == item.locked_card:
                 continue
             mismatched += 1
             if not fix or fixed >= CARD_LOCK_MAX_FIX_PER_SCAN:
                 continue
-            ok = await self.repair_member(ops, group_id, item.user_id, operator_id, current_card)
+            ok = await self.repair_member(ops, group_id, item.user_id, operator_id, current_card, force=force)
             if ok:
                 fixed += 1
                 await asyncio.sleep(CARD_LOCK_GROUP_RATE_LIMIT_SECONDS)
