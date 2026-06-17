@@ -4,7 +4,9 @@ import pytest
 
 from nonebot_plugin_qguard.enums import QGuardRole
 from nonebot_plugin_qguard.config import Config
+from nonebot_plugin_qguard.commands._common import ensure_manager
 from nonebot_plugin_qguard.models.base import get_session
+from nonebot_plugin_qguard.repositories.audit_log_repo import AuditLogRepo
 from nonebot_plugin_qguard.services.member_role_service import MemberRoleService
 from nonebot_plugin_qguard.services.permission_service import PermissionService
 from nonebot_plugin_qguard.services.punishment_service import PunishmentService
@@ -23,6 +25,20 @@ class FakeOps:
 
     async def get_group_member_info(self, group_id: int, user_id: int, no_cache: bool = True):
         return {"user_id": user_id, "role": "member"}
+
+
+class FakeBot:
+    def __init__(self) -> None:
+        self.self_id = "3195276161"
+
+    async def get_group_member_info(self, group_id: int, user_id: int, no_cache: bool = True):
+        return {"user_id": user_id, "role": "member"}
+
+
+class FakeEvent:
+    def __init__(self, group_id: int, user_id: int) -> None:
+        self.group_id = group_id
+        self.user_id = user_id
 
 
 def test_permission_role_order() -> None:
@@ -64,3 +80,18 @@ async def test_trusted_role_is_protected_from_auto_action() -> None:
         protected = await PermissionService(session).is_protected_from_auto_action(FakeOps(), group_id, user_id)
 
     assert protected
+
+
+@pytest.mark.asyncio
+async def test_ensure_manager_records_permission_denied() -> None:
+    group_id = 882000000 + (uuid4().int % 100000000)
+    user_id = 10000 + (uuid4().int % 100000)
+
+    reason = await ensure_manager(FakeBot(), FakeEvent(group_id, user_id), QGuardRole.GROUP_ADMIN)
+
+    assert reason == "权限不足。"
+    async with get_session() as session:
+        logs = await AuditLogRepo(session).latest(group_id, limit=1)
+    assert logs
+    assert logs[0].action == "permission_denied"
+    assert logs[0].result == "skipped"

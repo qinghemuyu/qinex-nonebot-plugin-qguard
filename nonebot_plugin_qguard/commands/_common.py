@@ -4,8 +4,9 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 
 from nonebot_plugin_qguard.adapter.onebot_v11_ops import OneBotV11GroupOps
 from nonebot_plugin_qguard.config import Config, load_config
-from nonebot_plugin_qguard.enums import QGuardRole
+from nonebot_plugin_qguard.enums import AuditAction, AuditResult, QGuardRole
 from nonebot_plugin_qguard.models.base import get_session
+from nonebot_plugin_qguard.repositories.audit_log_repo import AuditLogRepo
 from nonebot_plugin_qguard.services.permission_service import PermissionService
 from nonebot_plugin_qguard.utils.message_parser import split_command
 
@@ -36,4 +37,17 @@ async def ensure_manager(bot: Bot, event: GroupMessageEvent, required_role: QGua
             operator_id=event.user_id,
             required_role=required_role,
         )
+        if not decision.allowed:
+            await AuditLogRepo(session).create(
+                group_id=event.group_id,
+                operator_id=event.user_id,
+                action=AuditAction.PERMISSION_DENIED,
+                result=AuditResult.SKIPPED,
+                reason=decision.reason,
+                metadata={
+                    "required_role": int(required_role),
+                    "operator_role": int(decision.operator_role),
+                },
+            )
+            await session.commit()
     return None if decision.allowed else decision.reason
