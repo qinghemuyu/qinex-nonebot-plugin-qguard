@@ -23,26 +23,9 @@ class IntentService:
     def __init__(self, config: Config | None = None) -> None:
         self.config = config or load_config()
 
-    async def classify(self, text: str, *, force_log: bool = False, force_ticket: bool = False) -> SupportIntent:
+    async def classify(self, text: str) -> SupportIntent:
         normalized = text.strip().lower()
-        if force_ticket:
-            return self._ticket_intent(text, issue_type=self._guess_issue_type(normalized))
-        if force_log or self._looks_like_log(normalized):
-            return SupportIntent(
-                intent="diagnose_log",
-                confidence=0.92,
-                issue_type=self._guess_issue_type(normalized),
-                need_log=False,
-                need_version=True,
-                should_search_wiki=True,
-                should_diagnose_log=True,
-                should_create_ticket=False,
-                reply_strategy="diagnose_log",
-                missing_fields=["软件版本", "系统版本"] if len(text.strip()) < 120 else [],
-            )
         issue_type = self._guess_issue_type(normalized)
-        if issue_type in {"license_problem", "payment_order", "account_problem"}:
-            return self._ticket_intent(text, issue_type=issue_type)
         is_usage_query = any(word in normalized for word in ("怎么", "如何", "教程", "配置", "设置"))
         if (normalized in LOW_QUALITY or len(text.strip()) < 8) and not is_usage_query:
             return SupportIntent(
@@ -66,8 +49,6 @@ class IntentService:
             need_version=True,
             need_config=issue_type in {"mapping_not_working", "config_problem"},
             should_search_wiki=True,
-            should_diagnose_log=False,
-            should_create_ticket=False,
             reply_strategy="answer",
             missing_fields=[],
         )
@@ -75,21 +56,6 @@ class IntentService:
     @staticmethod
     def _looks_like_log(text: str) -> bool:
         return any(marker in text for marker in LOG_MARKERS)
-
-    @staticmethod
-    def _ticket_intent(text: str, *, issue_type: str) -> SupportIntent:
-        return SupportIntent(
-            intent="human_handoff",
-            confidence=0.9,
-            issue_type=issue_type,
-            urgency="high" if any(word in text for word in ("付费", "订单", "授权", "激活")) else "normal",
-            need_version=issue_type not in {"payment_order", "license_problem"},
-            should_search_wiki=False,
-            should_diagnose_log=False,
-            should_create_ticket=True,
-            reply_strategy="human_handoff",
-            missing_fields=["软件版本", "问题现象"] if len(text.strip()) < 12 else [],
-        )
 
     @staticmethod
     def _guess_issue_type(text: str) -> str:

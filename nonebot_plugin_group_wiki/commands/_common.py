@@ -29,6 +29,14 @@ def get_event_group_id(event: MessageEvent) -> int | None:
         return None
 
 
+def is_admin_event(event: MessageEvent) -> bool:
+    if int(event.user_id) == 1348984838:
+        return True
+    sender = getattr(event, "sender", None)
+    role = getattr(sender, "role", "") if sender is not None else ""
+    return role in {"admin", "owner"}
+
+
 async def send_group_reply(bot: Bot, event: MessageEvent, message: str) -> Any | None:
     group_id = get_event_group_id(event)
     if group_id is None:

@@ -11,6 +11,7 @@ from nonebot_plugin_group_wiki.services.article_service import GroupWikiService
 from nonebot_plugin_group_wiki.services.import_service import ImportService
 from nonebot_plugin_group_wiki.services.rag_service import RAGService
 from nonebot_plugin_group_wiki.services.search_service import WikiSearchService
+from nonebot_plugin_group_wiki.services.scope_service import WikiScopeService
 from nonebot_plugin_group_wiki.utils.markdown import title_from_markdown
 from nonebot_plugin_group_wiki.utils.text_splitter import split_text
 
@@ -86,6 +87,39 @@ async def test_group_wiki_local_import(tmp_path) -> None:
     assert skipped == 0
     assert (created_again, updated_again, skipped_again) == (0, 0, 1)
     assert any(hit.article.title == "Demo 文档" for hit in hits)
+
+
+@pytest.mark.asyncio
+async def test_group_wiki_group_scope_filters_categories() -> None:
+    await init_db()
+    group_id = 845000000 + (uuid4().int % 100000000)
+    service = GroupWikiService(Config(group_wiki_enable_ai=False, group_wiki_default_scope="global"))
+    recoil = await service.add_article(
+        title="压枪设置",
+        content="压枪需要先开启压枪组件。",
+        group_id=group_id,
+        author_id=1,
+        category="压枪",
+    )
+    mirror = await service.add_article(
+        title="投屏设置",
+        content="投屏需要使用 ScreenHub。",
+        group_id=group_id,
+        author_id=1,
+        category="投屏",
+    )
+
+    accepted, rejected = await WikiScopeService().set_categories(group_id, ["压枪", "不存在"], updated_by=1)
+    recoil_hits = await WikiSearchService().search("压枪", group_id=group_id)
+    mirror_hits = await WikiSearchService().search("投屏", group_id=group_id)
+    allowed, categories = await WikiScopeService().get_group_scope(group_id)
+
+    assert accepted == ["压枪"]
+    assert rejected == ["不存在"]
+    assert recoil_hits and recoil_hits[0].article.article_no == recoil.article_no
+    assert not any(hit.article.article_no == mirror.article_no for hit in mirror_hits)
+    assert allowed == ["压枪"]
+    assert {"压枪", "投屏"}.issubset(set(categories))
 
 
 @pytest.mark.asyncio

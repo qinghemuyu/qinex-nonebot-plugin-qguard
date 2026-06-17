@@ -13,7 +13,6 @@ class DiagnosisResult(BaseModel):
     need_more_info: bool = False
     questions: list[str] = Field(default_factory=list)
     related_keywords: list[str] = Field(default_factory=list)
-    should_create_ticket: bool = False
     should_add_to_wiki: bool = False
 
 

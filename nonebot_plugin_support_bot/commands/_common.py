@@ -2,7 +2,7 @@ from typing import Any
 
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 
-SUPPORT_COMMANDS = ("/客服", "/求助", "/报错", "/不会用", "/售后", "/人工", "/工单")
+SUPPORT_COMMANDS = ("/客服", "/求助", "/不会用", "/售后")
 SMART_KEYWORDS = ("打不开", "报错", "用不了", "映射没反应", "激活失败", "配置不会", "鼠标没反应", "游戏里没效果")
 
 
@@ -13,7 +13,7 @@ def parse_support_command(text: str) -> tuple[str, list[str], str] | None:
             return command, [], ""
         if stripped.startswith(f"{command} "):
             rest = stripped[len(command) :].strip()
-            if command in {"/客服", "/工单"}:
+            if command == "/客服":
                 parts = rest.split(maxsplit=1)
                 action = parts[0] if parts else "帮助"
                 args = parts[1] if len(parts) > 1 else ""

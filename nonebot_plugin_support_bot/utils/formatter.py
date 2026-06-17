@@ -1,7 +1,5 @@
-import json
 from typing import Any
 
-from nonebot_plugin_support_bot.models import Ticket, TicketMessage
 from nonebot_plugin_support_bot.services.schemas import SupportIntent
 
 
@@ -17,53 +15,7 @@ def format_followup(intent: SupportIntent) -> str:
     lines = ["我先接住这个问题。为了判断得准一点，请补充："]
     for index, field in enumerate(fields, start=1):
         lines.append(f"{index}. {field}：")
-    lines.append("也可以直接发 /人工，我会创建工单给管理员处理。")
-    return "\n".join(lines)
-
-
-def format_ticket_created(ticket: Ticket) -> str:
-    return (
-        f"已创建工单 {ticket.ticket_no}\n"
-        f"状态：{ticket.status}\n"
-        f"类型：{ticket.issue_type}\n"
-        f"摘要：{ticket.summary}\n"
-        "管理员可以用 /工单 接单、/工单 备注、/工单 关闭 处理。"
-    )
-
-
-def format_ticket(ticket: Ticket, messages: list[TicketMessage] | None = None) -> str:
-    refs = ""
-    try:
-        wiki_ids = json.loads(ticket.related_wiki_ids_json or "[]")
-        refs = "、".join(wiki_ids)
-    except json.JSONDecodeError:
-        refs = ""
-    lines = [
-        f"工单 {ticket.ticket_no}",
-        f"状态：{ticket.status}",
-        f"优先级：{ticket.priority}",
-        f"类型：{ticket.issue_type}",
-        f"提交人：{ticket.user_id}",
-        f"接单人：{ticket.assignee_id or '未接单'}",
-        f"摘要：{ticket.summary}",
-    ]
-    if ticket.related_diagnosis_id:
-        lines.append(f"诊断：{ticket.related_diagnosis_id}")
-    if refs:
-        lines.append(f"知识引用：{refs}")
-    if messages:
-        lines.append("最近记录：")
-        for item in messages[-5:]:
-            lines.append(f"- {item.sender_role}: {item.content[:80]}")
-    return "\n".join(lines)
-
-
-def format_ticket_list(tickets: list[Ticket]) -> str:
-    if not tickets:
-        return "暂无工单。"
-    lines = [f"共 {len(tickets)} 条工单："]
-    for ticket in tickets:
-        lines.append(f"- {ticket.ticket_no} [{ticket.status}] {ticket.summary}")
+    lines.append("如果是完整日志或 Traceback，请使用 /诊断 或 /报错。")
     return "\n".join(lines)
 
 
@@ -71,7 +23,7 @@ def format_diagnosis_reply(diagnosis: Any, *, wiki_answer: str = "", references:
     result = getattr(diagnosis, "result", None)
     record_no = getattr(diagnosis, "record_no", "")
     if result is None:
-        return "诊断完成，但没有拿到结构化结果。可以补充完整日志或发 /人工。"
+        return "诊断完成，但没有拿到结构化结果。可以补充完整日志后再试。"
     steps = list(getattr(result, "fix_steps", []) or [])
     questions = list(getattr(result, "questions", []) or [])
     lines = [
@@ -93,5 +45,5 @@ def format_diagnosis_reply(diagnosis: Any, *, wiki_answer: str = "", references:
         lines.append("还需要补充：")
         for question in questions[:3]:
             lines.append(f"- {question}")
-    lines.append("如果照做后还是不行，发 /人工 或 /工单 创建 <问题>。")
+    lines.append("如果照做后还是不行，请补充新的现象、日志或截图。")
     return "\n".join(lines)

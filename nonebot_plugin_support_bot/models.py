@@ -65,46 +65,6 @@ class SupportSession(Base):
     )
 
 
-class Ticket(Base):
-    __tablename__ = "support_ticket"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    ticket_no: Mapped[str] = mapped_column(String(32), unique=True, index=True, default="", nullable=False)
-    group_id: Mapped[int] = mapped_column(BigInteger, default=0, index=True, nullable=False)
-    user_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
-    assignee_id: Mapped[int | None] = mapped_column(BigInteger, index=True, nullable=True)
-    status: Mapped[str] = mapped_column(String(32), default="open", index=True, nullable=False)
-    priority: Mapped[str] = mapped_column(String(32), default="normal", nullable=False)
-    issue_type: Mapped[str] = mapped_column(String(64), default="unknown", index=True, nullable=False)
-    product: Mapped[str] = mapped_column(String(128), default="QInEX", nullable=False)
-    version: Mapped[str] = mapped_column(String(64), default="", nullable=False)
-    summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    related_diagnosis_id: Mapped[str] = mapped_column(String(64), default="", nullable=False)
-    related_wiki_ids_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
-    last_message_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False,
-    )
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-
-class TicketMessage(Base):
-    __tablename__ = "support_ticket_message"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    ticket_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
-    sender_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    sender_role: Mapped[str] = mapped_column(String(32), default="user", nullable=False)
-    content: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    attachments_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-
-
 @asynccontextmanager
 async def get_session() -> AsyncIterator[AsyncSession]:
     async with session_factory() as session:

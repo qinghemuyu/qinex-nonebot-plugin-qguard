@@ -103,6 +103,22 @@ class WikiFeedback(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class WikiGroupScopeConfig(Base):
+    __tablename__ = "wiki_group_scope_config"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    group_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True, nullable=False)
+    allowed_categories_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    updated_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+
 @asynccontextmanager
 async def get_session() -> AsyncIterator[AsyncSession]:
     async with session_factory() as session:

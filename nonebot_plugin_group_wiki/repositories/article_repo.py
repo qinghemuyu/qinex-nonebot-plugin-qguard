@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import distinct, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nonebot_plugin_group_wiki.models import WikiArticle
@@ -78,6 +78,15 @@ class WikiArticleRepo:
             clauses.append(or_(WikiArticle.group_id == 0, WikiArticle.group_id == group_id))
         result = await self.session.scalars(select(WikiArticle).where(*clauses).order_by(WikiArticle.id.desc()))
         return list(result)
+
+    async def list_categories(self, group_id: int | None = None) -> list[str]:
+        clauses = [WikiArticle.status == "published"]
+        if group_id is not None:
+            clauses.append(or_(WikiArticle.group_id == 0, WikiArticle.group_id == group_id))
+        result = await self.session.scalars(
+            select(distinct(WikiArticle.category)).where(*clauses).order_by(WikiArticle.category.asc())
+        )
+        return [item for item in result if item]
 
     async def increment_hit(self, article: WikiArticle) -> None:
         article.hit_count += 1

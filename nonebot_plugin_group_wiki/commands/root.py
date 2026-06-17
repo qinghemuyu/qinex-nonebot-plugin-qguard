@@ -5,6 +5,7 @@ from nonebot_plugin_group_wiki.services.article_service import GroupWikiService
 from nonebot_plugin_group_wiki.services.import_service import ImportService
 from nonebot_plugin_group_wiki.services.rag_service import RAGService
 from nonebot_plugin_group_wiki.services.search_service import WikiSearchService
+from nonebot_plugin_group_wiki.services.scope_service import WikiScopeService
 from nonebot_plugin_group_wiki.utils.formatter import (
     format_article,
     format_ask_response,
@@ -12,7 +13,7 @@ from nonebot_plugin_group_wiki.utils.formatter import (
     format_search_results,
 )
 
-from ._common import finish_reply, get_event_group_id, parse_wiki_command
+from ._common import finish_reply, get_event_group_id, is_admin_event, parse_wiki_command
 
 wiki_matcher = on_message(priority=5, block=False)
 
@@ -20,6 +21,12 @@ HELP_TEXT = """GroupWiki 命令
 /知识 导入本地
 /知识 添加 标题 内容
 /知识 搜索 关键词
+/知识 分类
+/知识 范围
+/知识 范围 全部
+/知识 范围 分类 分类1,分类2
+/知识 技能
+/知识 技能 分类 分类1,分类2
 /知识 查看 K0001
 /知识 有用 K0001
 /知识 没用 K0001
@@ -68,6 +75,15 @@ async def _(bot: Bot, event: MessageEvent) -> None:
         hits = await WikiSearchService().search(args_text, group_id=group_id, limit=5)
         await finish_reply(wiki_matcher, bot, event, format_search_results(hits))
 
+    if action == "分类":
+        categories = await WikiScopeService().list_categories(group_id=group_id)
+        if not categories:
+            await finish_reply(wiki_matcher, bot, event, "知识库还没有分类。先执行 /知识 导入本地。")
+        await finish_reply(wiki_matcher, bot, event, "当前知识分类：\n" + "\n".join(f"- {item}" for item in categories))
+
+    if action in {"范围", "技能"}:
+        await _handle_scope(bot, event, group_id, args_text)
+
     if action == "问":
         if not args_text:
             await finish_reply(wiki_matcher, bot, event, "用法：/知识 问 问题")
@@ -102,3 +118,44 @@ def parse_title_content(text: str) -> tuple[str, str]:
     if len(parts) < 2:
         return "", ""
     return parts[0], parts[1]
+
+
+async def _handle_scope(bot: Bot, event: MessageEvent, group_id: int | None, args_text: str) -> None:
+    if group_id is None:
+        await finish_reply(wiki_matcher, bot, event, "知识库范围只能在群里设置。")
+    service = WikiScopeService()
+    args = args_text.strip()
+    if not args:
+        allowed, all_categories = await service.get_group_scope(group_id)
+        lines = ["本群知识库回答范围："]
+        if allowed:
+            lines.append("仅允许以下分类：")
+            lines.extend(f"- {item}" for item in allowed)
+        else:
+            lines.append("全部分类")
+        if all_categories:
+            lines.append("")
+            lines.append("可选分类：")
+            lines.extend(f"- {item}" for item in all_categories)
+        await finish_reply(wiki_matcher, bot, event, "\n".join(lines))
+
+    if not is_admin_event(event):
+        await finish_reply(wiki_matcher, bot, event, "只有群管理员可以修改知识库回答范围。")
+
+    if args in {"全部", "全量", "all"}:
+        await service.set_all(group_id, updated_by=event.user_id)
+        await finish_reply(wiki_matcher, bot, event, "本群知识库回答范围已切换为：全部分类。")
+
+    if args.startswith("分类 "):
+        raw_categories = args.removeprefix("分类 ").strip()
+        categories = [item.strip() for item in raw_categories.replace("，", ",").split(",") if item.strip()]
+        if not categories:
+            await finish_reply(wiki_matcher, bot, event, "用法：/知识 范围 分类 分类1,分类2")
+        accepted, rejected = await service.set_categories(group_id, categories, updated_by=event.user_id)
+        lines = ["本群知识库回答范围已更新。"]
+        lines.append("生效分类：" + ("、".join(accepted) if accepted else "无"))
+        if rejected:
+            lines.append("未找到分类：" + "、".join(rejected))
+        await finish_reply(wiki_matcher, bot, event, "\n".join(lines))
+
+    await finish_reply(wiki_matcher, bot, event, "用法：/知识 范围、/知识 范围 全部、/知识 范围 分类 分类1,分类2")

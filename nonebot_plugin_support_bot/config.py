@@ -13,9 +13,6 @@ class Config(BaseModel):
     support_bot_enable_smart_listen: bool = False
     support_bot_min_intent_confidence: float = 0.78
     support_bot_session_ttl_seconds: int = 1800
-    support_bot_auto_create_ticket: bool = False
-    support_bot_require_admin_confirm_for_ticket: bool = False
-    support_bot_admin_group_id: int = 0
     support_bot_max_reply_length: int = 1200
     support_bot_software_name: str = "QInEX"
     support_bot_admins: list[int] = [1348984838]

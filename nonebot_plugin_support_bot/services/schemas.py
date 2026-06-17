@@ -13,8 +13,6 @@ class SupportIntent(BaseModel):
     need_version: bool = False
     need_config: bool = False
     should_search_wiki: bool = True
-    should_diagnose_log: bool = False
-    should_create_ticket: bool = False
     reply_strategy: str = "answer"
     missing_fields: list[str] = Field(default_factory=list)
 
@@ -22,7 +20,5 @@ class SupportIntent(BaseModel):
 class SupportReply(BaseModel):
     text: str
     state: str = "answering"
-    ticket_no: str = ""
     references: list[str] = Field(default_factory=list)
-    diagnosis_no: str = ""
     ai_used: bool = False

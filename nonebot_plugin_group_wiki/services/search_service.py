@@ -1,6 +1,7 @@
 from nonebot_plugin_group_wiki.models import get_session
 from nonebot_plugin_group_wiki.repositories.article_repo import WikiArticleRepo
 from nonebot_plugin_group_wiki.repositories.index_repo import WikiSearchIndexRepo
+from nonebot_plugin_group_wiki.repositories.scope_config_repo import WikiScopeConfigRepo
 from nonebot_plugin_group_wiki.utils.rerank import SearchHit, score_article
 
 
@@ -12,6 +13,10 @@ class WikiSearchService:
             article_repo = WikiArticleRepo(session)
             index_repo = WikiSearchIndexRepo(session)
             articles = await article_repo.list_published(group_id=group_id)
+            allowed_categories = await WikiScopeConfigRepo(session).allowed_categories(group_id)
+            if allowed_categories:
+                allowed = set(allowed_categories)
+                articles = [article for article in articles if article.category in allowed]
             hits: list[SearchHit] = []
             for article in articles:
                 chunks = await index_repo.chunks_by_article(article.id)
