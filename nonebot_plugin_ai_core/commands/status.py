@@ -1,0 +1,27 @@
+from nonebot import on_message
+from nonebot.adapters.onebot.v11 import Bot, MessageEvent
+
+from nonebot_plugin_ai_core.config import load_config
+from nonebot_plugin_ai_core.service import AICoreService
+
+status_matcher = on_message(priority=5, block=False)
+
+
+@status_matcher.handle()
+async def _(bot: Bot, event: MessageEvent) -> None:
+    text = event.get_plaintext().strip()
+    if text != "/ai状态":
+        return
+    config = load_config()
+    if event.user_id not in config.ai_core_super_admins:
+        await status_matcher.finish("权限不足。")
+    summary = await AICoreService(config).usage_summary()
+    cache_state = "开启" if config.ai_core_enable_cache else "关闭"
+    await status_matcher.finish(
+        "AI Core 状态\n"
+        f"Provider：{config.ai_core_provider}\n"
+        f"Model：{config.ai_core_model}\n"
+        f"缓存：{cache_state}\n"
+        f"今日调用：{summary['total_calls']} 次，成功 {summary['success_calls']} 次，失败 {summary['failed_calls']} 次\n"
+        f"今日估算 tokens：{summary['total_tokens']}"
+    )
