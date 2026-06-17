@@ -33,9 +33,9 @@ class FakeAIService:
 
 
 def test_parse_log_doctor_command() -> None:
-    assert parse_log_doctor_command("/诊断 abc") == ("/诊断", "abc")
-    assert parse_log_doctor_command("/报错 xxx") == ("/报错", "xxx")
-    assert parse_log_doctor_command("/logdoctor") == ("/logdoctor", "")
+    assert parse_log_doctor_command("/诊断 abc") is None
+    assert parse_log_doctor_command("/报错 xxx") is None
+    assert parse_log_doctor_command("/logdoctor") is None
     assert parse_log_doctor_command("/管 状态") is None
 
 

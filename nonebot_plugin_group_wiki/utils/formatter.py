@@ -8,7 +8,8 @@ def format_search_results(hits: list[SearchHit]) -> str:
         return "知识库没有找到相关内容。"
     lines = [f"找到 {len(hits)} 条相关知识："]
     for index, hit in enumerate(hits, start=1):
-        lines.append(f"{index}. [{hit.article.article_no}] {hit.article.title}")
+        ref = hit.reference or hit.article.category or hit.article.article_no
+        lines.append(f"{index}. [{ref}] {hit.article.title}")
     return "\n".join(lines)
 
 
@@ -20,8 +21,13 @@ def format_article(article: WikiArticle) -> str:
 
 
 def format_ask_response(response: AskResponse) -> str:
-    refs = "、".join(response.references) if response.references else "无"
-    return f"{response.answer.strip()}\n\n参考：{refs}"
+    answer = response.answer.strip()
+    if not response.references:
+        return answer
+    if "引用：" in answer or "参考：" in answer:
+        return answer
+    refs = "、".join(response.references)
+    return f"{answer}\n\n引用：{refs}"
 
 
 def format_import_result(created: int, updated: int, skipped: int) -> str:

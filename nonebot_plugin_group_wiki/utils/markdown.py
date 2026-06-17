@@ -19,7 +19,19 @@ def summary_from_markdown(text: str, max_chars: int = 180) -> str:
 
 
 def category_from_path(path: Path) -> str:
-    stem = path.stem
-    if "_" in stem:
-        return stem.split("_", 1)[-1]
-    return stem
+    return path.stem.strip()
+
+
+def split_markdown_sections(text: str) -> list[str]:
+    sections: list[str] = []
+    current: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#") and not stripped.startswith("# "):
+            if current:
+                sections.append("\n".join(current).strip())
+                current = []
+        current.append(line)
+    if current:
+        sections.append("\n".join(current).strip())
+    return [section for section in sections if section]

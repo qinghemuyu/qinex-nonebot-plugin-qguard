@@ -11,8 +11,14 @@ from nonebot_plugin_group_wiki.services.article_service import GroupWikiService
 from nonebot_plugin_group_wiki.services.import_service import ImportService
 from nonebot_plugin_group_wiki.services.rag_service import RAGService
 from nonebot_plugin_group_wiki.services.search_service import WikiSearchService
+from nonebot_plugin_group_wiki.services.skill_registry import (
+    FAQ_CATEGORY,
+    categories_for_skill_ids,
+    faq_chunk_allowed_for_categories,
+    match_skill_id,
+)
 from nonebot_plugin_group_wiki.services.scope_service import WikiScopeService
-from nonebot_plugin_group_wiki.utils.markdown import title_from_markdown
+from nonebot_plugin_group_wiki.utils.markdown import category_from_path, title_from_markdown
 from nonebot_plugin_group_wiki.utils.text_splitter import split_text
 
 
@@ -39,7 +45,20 @@ def test_parse_title_content() -> None:
 
 def test_markdown_helpers_and_splitter() -> None:
     assert title_from_markdown("# 标题\n正文", "fallback") == "标题"
+    assert category_from_path(type("P", (), {"stem": "06_连点与压枪"})()) == "06_连点与压枪"
     assert split_text("abcdef", chunk_size=3, overlap=1) == ["abc", "cde", "ef"]
+
+
+def test_qinex_skill_registry() -> None:
+    categories, rejected = categories_for_skill_ids(["qinex_recoil_click", "qinex_p4"])
+
+    assert "06_连点与压枪" in categories
+    assert "08_P4单机版" in categories
+    assert FAQ_CATEGORY not in categories
+    assert rejected == []
+    assert match_skill_id("P4 单机版怎么用手机配置") == "qinex_p4"
+    assert faq_chunk_allowed_for_categories("## 五、连点 / 压枪\n压枪怎么开", ["06_连点与压枪"])
+    assert not faq_chunk_allowed_for_categories("## 七、投屏\n投屏怎么开", ["06_连点与压枪"])
 
 
 @pytest.mark.asyncio
@@ -87,6 +106,7 @@ async def test_group_wiki_local_import(tmp_path) -> None:
     assert skipped == 0
     assert (created_again, updated_again, skipped_again) == (0, 0, 1)
     assert any(hit.article.title == "Demo 文档" for hit in hits)
+    assert any(hit.article.category == "01_demo" for hit in hits)
 
 
 @pytest.mark.asyncio
@@ -120,6 +140,36 @@ async def test_group_wiki_group_scope_filters_categories() -> None:
     assert not any(hit.article.article_no == mirror.article_no for hit in mirror_hits)
     assert allowed == ["压枪"]
     assert {"压枪", "投屏"}.issubset(set(categories))
+
+
+@pytest.mark.asyncio
+async def test_group_wiki_faq_chunks_respect_scope() -> None:
+    await init_db()
+    group_id = 846000000 + (uuid4().int % 100000000)
+    service = GroupWikiService(Config(group_wiki_enable_ai=False, group_wiki_default_scope="global"))
+    faq = await service.add_article(
+        title="QInEX 常见问题",
+        content="# QInEX 常见问题\n\n## 五、连点 / 压枪\n压枪怎么开。\n\n## 七、投屏\n投屏怎么开。",
+        group_id=group_id,
+        author_id=1,
+        category=FAQ_CATEGORY,
+    )
+    await service.add_article(
+        title="连点与压枪",
+        content="# 连点与压枪\n\n## 压枪\n压枪需要先开启。",
+        group_id=group_id,
+        author_id=1,
+        category="06_连点与压枪",
+    )
+
+    accepted, rejected = await WikiScopeService().set_skills(group_id, ["qinex_recoil_click"], updated_by=1)
+    recoil_hits = await WikiSearchService().search("压枪怎么开", group_id=group_id)
+    mirror_hits = await WikiSearchService().search("投屏怎么开", group_id=group_id)
+
+    assert accepted == ["06_连点与压枪"]
+    assert rejected == []
+    assert any(hit.article.article_no == faq.article_no and "连点" in hit.reference for hit in recoil_hits)
+    assert not any(hit.article.article_no == faq.article_no for hit in mirror_hits)
 
 
 @pytest.mark.asyncio

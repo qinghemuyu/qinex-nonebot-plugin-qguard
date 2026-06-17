@@ -14,7 +14,7 @@ from ._common import (
     parse_support_command,
 )
 
-HELP_TEXT = """SupportBot 知识问答命令
+HELP_TEXT = """QInEX 智能问答命令
 /客服 帮助
 /客服 状态
 /客服 开启
@@ -26,7 +26,7 @@ HELP_TEXT = """SupportBot 知识问答命令
 /不会用 功能名称
 
 知识库范围由 /知识 范围 管理。
-日志诊断请使用 /诊断 或 /报错。
+可用 skills 用 /知识 技能 查看。
 """
 
 
@@ -63,7 +63,7 @@ async def _(bot: Bot, event: MessageEvent) -> None:
             if group_id is None:
                 await finish_reply(support_command, bot, event, "这个命令只能在群里使用。")
             if not is_admin:
-                await finish_reply(support_command, bot, event, "只有管理员可以修改 SupportBot 开关。")
+                await finish_reply(support_command, bot, event, "只有管理员可以修改 QInEX 智能问答开关。")
             await finish_reply(
                 support_command,
                 bot,
@@ -74,7 +74,7 @@ async def _(bot: Bot, event: MessageEvent) -> None:
             if group_id is None:
                 await finish_reply(support_command, bot, event, "这个命令只能在群里使用。")
             if not is_admin:
-                await finish_reply(support_command, bot, event, "只有管理员可以修改 SupportBot 模式。")
+                await finish_reply(support_command, bot, event, "只有管理员可以修改 QInEX 智能问答模式。")
             mode = _parse_mode(args_text)
             if mode == "":
                 await finish_reply(support_command, bot, event, "用法：/客服 模式 命令触发 或 /客服 模式 智能监听")

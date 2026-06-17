@@ -3,7 +3,7 @@ from typing import Any
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 
 
-LOG_DOCTOR_COMMANDS = ("/诊断", "/报错", "/看日志", "/logdoctor")
+LOG_DOCTOR_COMMANDS: tuple[str, ...] = ()
 
 
 def parse_log_doctor_command(text: str) -> tuple[str, str] | None:

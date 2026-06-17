@@ -6,6 +6,7 @@ class SupportIntent(BaseModel):
     intent: str = "support"
     confidence: float = 0.8
     product: str | None = "QInEX"
+    skill: str = "unknown"
     issue_type: str = "unknown"
     urgency: str = "normal"
     need_log: bool = False

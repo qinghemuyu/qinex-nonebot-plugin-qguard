@@ -4,9 +4,9 @@ from .config import Config
 
 
 __plugin_meta__ = PluginMetadata(
-    name="LogDoctor 日志诊断",
-    description="面向 NoneBot / OneBot / Python / Linux 常见报错的日志诊断插件，支持规则诊断和 AI Core 兜底。",
-    usage="/诊断 <日志文本>\n/诊断 最近\n/诊断 规则列表",
+    name="LogDoctor 内部诊断服务",
+    description="内部保留的日志诊断服务；当前 QInEX 智能问答方案不注册群内诊断命令。",
+    usage="当前不提供群命令。",
     type="application",
     config=Config,
     supported_adapters={"~onebot.v11"},

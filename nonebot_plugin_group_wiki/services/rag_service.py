@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 from nonebot_plugin_group_wiki.config import Config, load_config
 from nonebot_plugin_group_wiki.services.schemas import AskResponse
 from nonebot_plugin_group_wiki.services.search_service import WikiSearchService
+from nonebot_plugin_group_wiki.services.skill_registry import match_skill_id
 from nonebot_plugin_group_wiki.utils.text_splitter import split_text
 
 
@@ -44,13 +45,14 @@ class RAGService:
                 hits=[],
                 ai_used=False,
             )
-        references = [hit.article.article_no for hit in hits]
+        references = _unique_references(hit.reference for hit in hits)
         if not self.config.group_wiki_enable_ai:
             answer = self._fallback_answer(question, hits)
             return AskResponse(answer=answer, references=references, hits=hits, ai_used=False)
         context = "\n\n".join(
-            f"[{hit.article.article_no}] {hit.article.title}\n{hit.snippet or hit.article.summary}" for hit in hits
+            f"[{hit.reference}] {hit.article.title}\n{hit.snippet or hit.article.summary}" for hit in hits
         )
+        skill_id = match_skill_id(question)
         try:
             ai_core = self.ai_core or _get_ai_core()
             answer = await ai_core.chat(
@@ -58,12 +60,22 @@ class RAGService:
                     {
                         "role": "system",
                         "content": (
-                            f"你是 {self.config.group_wiki_software_name} 售后知识库助手。"
+                            f"你是 {self.config.group_wiki_software_name} 映射软件的官方知识库问答助手。"
                             "只能根据给定知识库片段回答，不要编造知识库外的功能、价格、授权或承诺。"
-                            "如果片段不足以回答，要明确说知识库没有足够信息。回答简洁，适合 QQ 群。"
+                            "如果片段不足以回答，要明确说“当前知识库里没有足够信息，我不乱猜。”"
+                            "回复要短，适合 QQ 群，先给结论，再给步骤或检查项。"
+                            "末尾必须给出引用来源，格式使用“文件名#小节”。"
+                            "涉及压枪时必须提醒反作弊/封号风险，开启自行承担风险。"
                         ),
                     },
-                    {"role": "user", "content": f"知识库片段：\n{context}\n\n用户问题：{question}"},
+                    {
+                        "role": "user",
+                        "content": (
+                            f"命中的 skill：{skill_id}\n"
+                            f"可用引用来源：{', '.join(references)}\n"
+                            f"知识库片段：\n{context}\n\n用户问题：{question}"
+                        ),
+                    },
                 ],
                 user_id=user_id,
                 group_id=group_id,
@@ -79,4 +91,16 @@ class RAGService:
     def _fallback_answer(question: str, hits: list) -> str:
         first = hits[0]
         snippet = first.snippet or first.article.summary or split_text(first.article.content_md, chunk_size=260, overlap=0)[0]
-        return f"知识库里和“{question}”最相关的是：{first.article.title}\n{snippet}"
+        return f"知识库里和“{question}”最相关的是：{first.article.title}\n{snippet}\n引用：{first.reference}"
+
+
+def _unique_references(references: object) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for reference in references:
+        text = str(reference).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result

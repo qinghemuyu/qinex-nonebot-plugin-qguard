@@ -19,6 +19,4 @@ if driver is not None:
     async def _init_log_doctor() -> None:
         await init_db()
 
-from .commands import diagnose as diagnose  # noqa: E402,F401
-
 __all__ = ["LogDoctorService"]

@@ -3,7 +3,25 @@ from typing import Any
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 
 SUPPORT_COMMANDS = ("/客服", "/求助", "/不会用", "/售后")
-SMART_KEYWORDS = ("打不开", "报错", "用不了", "映射没反应", "激活失败", "配置不会", "鼠标没反应", "游戏里没效果")
+SMART_KEYWORDS = (
+    "qinex",
+    "QInEX",
+    "压枪",
+    "连点",
+    "投屏",
+    "ScreenHub",
+    "QInEScreen",
+    "P4",
+    "S3",
+    "ADB",
+    "映射没反应",
+    "配置不会",
+    "鼠标没反应",
+    "游戏里没效果",
+    "按键没反应",
+    "打不开",
+    "用不了",
+)
 
 
 def parse_support_command(text: str) -> tuple[str, list[str], str] | None:

@@ -32,25 +32,26 @@ class SupportBotService:
                 mode = item.trigger_mode
                 smart_listen = item.smart_listen
         return (
-            "SupportBot 知识问答状态\n"
+            "QInEX 智能问答状态\n"
             f"插件启用：{'是' if enabled else '否'}\n"
             f"触发模式：{mode}\n"
             f"智能监听：{'开' if smart_listen else '关'}\n"
             f"软件范围：{self.config.support_bot_software_name}\n"
-            "知识范围：由 /知识 范围 控制"
+            "知识范围：由 /知识 范围 控制\n"
+            "技能列表：用 /知识 技能 查看"
         )
 
     async def set_enabled(self, group_id: int, enabled: bool, operator_id: int | None) -> str:
         async with get_session() as session:
             await SupportGroupConfigRepo(session, self.config).set_enabled(group_id, enabled, operator_id)
             await session.commit()
-        return f"SupportBot 知识问答已{'开启' if enabled else '关闭'}。"
+        return f"QInEX 智能问答已{'开启' if enabled else '关闭'}。"
 
     async def set_mode(self, group_id: int, mode: str, operator_id: int | None) -> str:
         async with get_session() as session:
             await SupportGroupConfigRepo(session, self.config).set_mode(group_id, mode, operator_id)
             await session.commit()
-        return f"SupportBot 知识问答模式已设置为：{mode}。"
+        return f"QInEX 智能问答模式已设置为：{mode}。"
 
     async def is_group_enabled(self, group_id: int | None) -> bool:
         if group_id is None:
@@ -76,9 +77,16 @@ class SupportBotService:
         user_id: int,
     ) -> SupportReply:
         if not await self.is_group_enabled(group_id):
-            return SupportReply(text="SupportBot 知识问答当前未开启。", state="closed")
+            return SupportReply(text="QInEX 智能问答当前未开启。", state="closed")
 
         intent = await self.intent_service.classify(text)
+        if intent.reply_strategy == "reject":
+            return SupportReply(text="我只回答 QInEX 映射软件相关问题。这个问题不在当前知识库范围内。", state="out_of_scope")
+        if intent.reply_strategy == "safe_no_answer":
+            return SupportReply(
+                text="当前知识库没有授权/账号处理流程，我不乱猜。也不要在群里发完整授权码、订单号、密钥或隐私截图。",
+                state="no_answer",
+            )
         if intent.reply_strategy == "ask_followup":
             await self._save_session(group_id, user_id, "collecting_issue", intent, text)
             return SupportReply(
@@ -139,6 +147,7 @@ class SupportBotService:
                 context_json=json.dumps(
                     {
                         "issue_type": intent.issue_type,
+                        "skill": intent.skill,
                         "text": text[:1000],
                         "references": [],
                     },

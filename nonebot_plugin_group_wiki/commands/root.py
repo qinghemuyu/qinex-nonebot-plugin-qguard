@@ -5,6 +5,7 @@ from nonebot_plugin_group_wiki.services.article_service import GroupWikiService
 from nonebot_plugin_group_wiki.services.import_service import ImportService
 from nonebot_plugin_group_wiki.services.rag_service import RAGService
 from nonebot_plugin_group_wiki.services.search_service import WikiSearchService
+from nonebot_plugin_group_wiki.services.skill_registry import describe_wiki_skills
 from nonebot_plugin_group_wiki.services.scope_service import WikiScopeService
 from nonebot_plugin_group_wiki.utils.formatter import (
     format_article,
@@ -25,8 +26,8 @@ HELP_TEXT = """GroupWiki 命令
 /知识 范围
 /知识 范围 全部
 /知识 范围 分类 分类1,分类2
+/知识 范围 技能 qinex_recoil_click,qinex_screenhub
 /知识 技能
-/知识 技能 分类 分类1,分类2
 /知识 查看 K0001
 /知识 有用 K0001
 /知识 没用 K0001
@@ -81,8 +82,11 @@ async def _(bot: Bot, event: MessageEvent) -> None:
             await finish_reply(wiki_matcher, bot, event, "知识库还没有分类。先执行 /知识 导入本地。")
         await finish_reply(wiki_matcher, bot, event, "当前知识分类：\n" + "\n".join(f"- {item}" for item in categories))
 
-    if action in {"范围", "技能"}:
+    if action == "范围":
         await _handle_scope(bot, event, group_id, args_text)
+
+    if action == "技能":
+        await _handle_skills(bot, event, group_id, args_text)
 
     if action == "问":
         if not args_text:
@@ -158,4 +162,25 @@ async def _handle_scope(bot: Bot, event: MessageEvent, group_id: int | None, arg
             lines.append("未找到分类：" + "、".join(rejected))
         await finish_reply(wiki_matcher, bot, event, "\n".join(lines))
 
-    await finish_reply(wiki_matcher, bot, event, "用法：/知识 范围、/知识 范围 全部、/知识 范围 分类 分类1,分类2")
+    if args.startswith("技能 "):
+        raw_skills = args.removeprefix("技能 ").strip()
+        skill_ids = [item.strip() for item in raw_skills.replace("，", ",").split(",") if item.strip()]
+        if not skill_ids:
+            await finish_reply(wiki_matcher, bot, event, "用法：/知识 范围 技能 qinex_recoil_click,qinex_screenhub")
+        accepted, rejected = await service.set_skills(group_id, skill_ids, updated_by=event.user_id)
+        lines = ["本群知识库回答范围已按 skill 更新。"]
+        lines.append("生效分类：" + ("、".join(accepted) if accepted else "无"))
+        if rejected:
+            lines.append("未找到 skill/分类：" + "、".join(rejected))
+        await finish_reply(wiki_matcher, bot, event, "\n".join(lines))
+
+    await finish_reply(wiki_matcher, bot, event, "用法：/知识 范围、/知识 范围 全部、/知识 范围 分类 分类1,分类2、/知识 范围 技能 skill_id")
+
+
+async def _handle_skills(bot: Bot, event: MessageEvent, group_id: int | None, args_text: str) -> None:
+    if args_text.strip():
+        await _handle_scope(bot, event, group_id, f"技能 {args_text.strip()}")
+    service = WikiScopeService()
+    allowed, _all_categories = await service.get_group_scope(group_id)
+    lines = [describe_wiki_skills(), "", "本群当前范围：" + ("、".join(allowed) if allowed else "全部分类")]
+    await finish_reply(wiki_matcher, bot, event, "\n".join(lines))

@@ -1,20 +1,9 @@
+from types import ModuleType
+import importlib
+
 from nonebot_plugin_support_bot.config import Config, load_config
 from nonebot_plugin_support_bot.services.schemas import SupportIntent
 
-
-LOG_MARKERS = (
-    "traceback",
-    "exception",
-    "error",
-    "module not found",
-    "modulenotfounderror",
-    "attributeerror",
-    "runtimeerror",
-    "sqlite",
-    "[error]",
-    "报错",
-    "错误",
-)
 
 LOW_QUALITY = {"打不开", "用不了", "没反应", "报错了", "不会用", "还是不行", "不行"}
 
@@ -25,14 +14,37 @@ class IntentService:
 
     async def classify(self, text: str) -> SupportIntent:
         normalized = text.strip().lower()
+        skill_registry = _get_skill_registry()
+        skill = skill_registry.match_skill_id(text)
+        if any(word in normalized for word in ("授权", "激活", "授权码", "注册码", "订单", "退款", "换绑", "破解", "绕过", "密钥")) and "p4" not in normalized:
+            return SupportIntent(
+                intent="privacy_or_license",
+                confidence=0.88,
+                skill="unknown",
+                issue_type="privacy_or_license",
+                need_screenshot=False,
+                need_version=False,
+                should_search_wiki=False,
+                reply_strategy="safe_no_answer",
+            )
+        if not skill_registry.is_qinex_related(text) and not any(word in normalized for word in LOW_QUALITY):
+            return SupportIntent(
+                is_support_request=False,
+                intent="out_of_scope",
+                confidence=0.9,
+                skill="unknown",
+                issue_type="out_of_scope",
+                should_search_wiki=False,
+                reply_strategy="reject",
+            )
         issue_type = self._guess_issue_type(normalized)
         is_usage_query = any(word in normalized for word in ("怎么", "如何", "教程", "配置", "设置"))
         if (normalized in LOW_QUALITY or len(text.strip()) < 8) and not is_usage_query:
             return SupportIntent(
                 intent="collect_info",
                 confidence=0.86,
+                skill=skill,
                 issue_type=issue_type,
-                need_log=issue_type in {"launch_failed", "crash", "bug_report"},
                 need_screenshot=True,
                 need_version=True,
                 need_config=issue_type in {"mapping_not_working", "config_problem"},
@@ -43,8 +55,8 @@ class IntentService:
         return SupportIntent(
             intent="support_question",
             confidence=0.82,
+            skill=skill,
             issue_type=issue_type,
-            need_log=issue_type in {"launch_failed", "crash", "bug_report"},
             need_screenshot=issue_type in {"mapping_not_working", "compatibility_problem"},
             need_version=True,
             need_config=issue_type in {"mapping_not_working", "config_problem"},
@@ -54,15 +66,13 @@ class IntentService:
         )
 
     @staticmethod
-    def _looks_like_log(text: str) -> bool:
-        return any(marker in text for marker in LOG_MARKERS)
-
-    @staticmethod
     def _guess_issue_type(text: str) -> str:
-        if any(word in text for word in ("授权", "激活", "授权码", "注册码")):
-            return "license_problem"
-        if any(word in text for word in ("付款", "支付", "订单", "退款")):
-            return "payment_order"
+        if "p4" in text:
+            return "p4_usage"
+        if any(word in text for word in ("投屏", "screenhub", "qinescreen", "vpointer")):
+            return "screenhub_usage"
+        if any(word in text for word in ("授权码", "注册码", "订单", "退款", "换绑")):
+            return "privacy_or_license"
         if any(word in text for word in ("压枪", "连点", "映射", "按键", "鼠标", "没反应")):
             return "mapping_not_working"
         if any(word in text for word in ("配置", "怎么", "如何", "教程", "不会")):
@@ -71,16 +81,32 @@ class IntentService:
             return "performance_problem"
         if any(word in text for word in ("打不开", "启动", "闪退", "崩溃", "crash")):
             return "launch_failed"
-        if any(word in text for word in ("bug", "异常", "报错", "错误", "traceback")):
-            return "bug_report"
         return "usage_question"
 
     @staticmethod
     def _missing_fields(issue_type: str) -> list[str]:
         if issue_type == "mapping_not_working":
-            return ["软件版本", "游戏名称", "分辨率", "是否管理员权限运行", "当前配置文件", "具体现象"]
-        if issue_type in {"launch_failed", "crash", "bug_report"}:
-            return ["软件版本", "系统版本", "完整报错或日志", "复现步骤"]
-        if issue_type in {"license_problem", "payment_order"}:
-            return ["订单号后 4 位或授权码后 4 位", "绑定 QQ", "错误提示截图"]
-        return ["软件版本", "系统版本", "具体现象", "截图或日志"]
+            return ["是按键、鼠标还是压枪没反应", "使用的是 S3、免硬件还是 P4", "是否管理员权限运行"]
+        if issue_type in {"launch_failed", "crash"}:
+            return ["QInEX 版本", "使用模式：S3 / 免硬件 / P4", "卡在哪一步或看到什么提示"]
+        if issue_type == "screenhub_usage":
+            return ["是 PC 投屏还是手机 APP", "画面问题还是控制问题", "当前连接方式"]
+        if issue_type == "p4_usage":
+            return ["P4 卡在哪个页面", "手机是否出现触点", "是否用手机 APP 配置 P4"]
+        return ["使用的是哪个功能", "卡在哪一步", "当前看到的现象"]
+
+
+def _get_skill_registry() -> ModuleType:
+    try:
+        return importlib.import_module("nonebot_plugin_group_wiki.services.skill_registry")
+    except ModuleNotFoundError as exc:
+        if exc.name and not exc.name.startswith("nonebot_plugin_group_wiki"):
+            raise
+    package_parts = (__package__ or "").split(".")
+    if "nonebot_plugin_support_bot" in package_parts:
+        index = package_parts.index("nonebot_plugin_support_bot")
+        sibling_module = ".".join(
+            [*package_parts[:index], "nonebot_plugin_group_wiki", "services", "skill_registry"]
+        )
+        return importlib.import_module(sibling_module)
+    raise ModuleNotFoundError("nonebot_plugin_group_wiki")

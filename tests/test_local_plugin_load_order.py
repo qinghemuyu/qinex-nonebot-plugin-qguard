@@ -58,8 +58,8 @@ print(AIDiagnoseService().ai_core is None)
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "nonebot_plugin_support_bot True" in result.stdout
-    assert "nonebot_plugin_group_wiki True" in result.stdout
-    assert "nonebot_plugin_log_doctor True" in result.stdout
-    assert "nonebot_plugin_ai_core True" in result.stdout
+    assert "src.qinex.plugins.nonebot_plugin_support_bot True" in result.stdout
+    assert "src.qinex.plugins.nonebot_plugin_group_wiki True" in result.stdout
+    assert "src.qinex.plugins.nonebot_plugin_log_doctor True" in result.stdout
+    assert "src.qinex.plugins.nonebot_plugin_ai_core True" in result.stdout
     assert "AICoreService" in result.stdout
