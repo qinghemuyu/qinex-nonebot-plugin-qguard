@@ -10,7 +10,8 @@ def trim_reply(text: str, limit: int) -> str:
 
 def format_followup(intent: SupportIntent) -> str:
     fields = (intent.missing_fields or ["使用的是哪个功能", "卡在哪一步", "当前看到的现象"])[:3]
-    lines = ["我先按 QInEX 问题帮你判断。为了更准一点，请补充："]
-    for index, field in enumerate(fields, start=1):
-        lines.append(f"{index}. {field}：")
+    prefixes = ("一、", "二、", "三、")
+    lines = ["喵，我先按 QInEX 问题帮你判断。为了更准一点，补充这几项就行："]
+    for index, field in enumerate(fields):
+        lines.append(f"{prefixes[index]}{field}")
     return "\n".join(lines)

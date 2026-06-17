@@ -1,6 +1,6 @@
 import json
 import time
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -265,6 +265,7 @@ class AICoreService:
                     response_hash=hash_text(response_text),
                     prompt_text=prompt_text if self.config.ai_core_log_prompt else "",
                     response_text=response_text if self.config.ai_core_log_response else "",
+                    created_at=datetime.now(),
                 )
             )
             await session.commit()

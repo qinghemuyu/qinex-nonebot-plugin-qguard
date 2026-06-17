@@ -78,15 +78,15 @@ class SupportBotService:
         user_id: int,
     ) -> SupportReply:
         if not await self.is_group_enabled(group_id):
-            return SupportReply(text="QInEX 智能问答当前未开启。", state="closed")
+            return SupportReply(text="喵，QInEX 智能问答当前还没开启。", state="closed")
 
         intent = await self.intent_service.classify(text)
         if intent.reply_strategy == "reject":
-            return SupportReply(text="我只回答 QInEX 映射软件相关问题。这个问题不在当前知识库范围内。", state="out_of_scope")
+            return SupportReply(text="喵，我只回答 QInEX 映射软件相关问题。这个问题不在当前知识库范围内。", state="out_of_scope")
         if intent.reply_strategy == "safe_no_answer":
             record_no = await self._record_no_answer(group_id, user_id, text, reason="privacy_or_license")
             return SupportReply(
-                text="当前知识库没有授权/账号处理流程，我不乱猜。也不要在群里发完整授权码、订单号、密钥或隐私截图。",
+                text="喵，当前知识库没有授权/账号处理流程，我不乱猜。也不要在群里发完整授权码、订单号、密钥或隐私截图。",
                 state="no_answer",
                 no_answer_id=record_no,
             )
@@ -111,7 +111,7 @@ class SupportBotService:
         except Exception as exc:
             await self._save_session(group_id, user_id, "collecting_issue", intent, text)
             return SupportReply(
-                text=f"知识问答暂时不可用：{exc}\n可以稍后重试，或让管理员检查 /知识 导入本地 和 /知识 范围。",
+                text=f"喵，知识问答暂时不可用：{exc}\n可以稍后重试，或让管理员检查 /知识 导入本地 和 /知识 范围。",
                 state="collecting_issue",
             )
         references = list(getattr(wiki_response, "references", []) or [])
@@ -128,7 +128,7 @@ class SupportBotService:
         record_no = await self._record_no_answer(group_id, user_id, text, reason="no_knowledge")
         return SupportReply(
             text=trim_reply(
-                "当前群生效的知识库范围里没有找到可靠答案。你可以换个关键词，或让管理员用 /知识 范围 查看本群启用的知识分类。",
+                "喵，当前群生效的知识库范围里没有找到可靠答案。我已经把这个问题记下来给主人看啦。你也可以换个关键词，或让管理员用 /知识 范围 查看本群启用的知识分类。",
                 self.config.support_bot_max_reply_length,
             ),
             state="no_answer",

@@ -9,7 +9,7 @@ from nonebot_plugin_group_wiki.config import Config
 from nonebot_plugin_group_wiki.models import init_db
 from nonebot_plugin_group_wiki.services.article_service import GroupWikiService
 from nonebot_plugin_group_wiki.services.import_service import ImportService
-from nonebot_plugin_group_wiki.services.rag_service import RAGService
+from nonebot_plugin_group_wiki.services.rag_service import RAGService, _clean_chat_answer
 from nonebot_plugin_group_wiki.services.search_service import WikiSearchService
 from nonebot_plugin_group_wiki.services.skill_registry import (
     FAQ_CATEGORY,
@@ -28,6 +28,8 @@ class FakeAICore:
 
     async def chat(self, messages: list[dict], **kwargs) -> str:
         self.calls += 1
+        assert "猫娘知识库问答助手" in messages[0]["content"]
+        assert "不要使用 Markdown 格式" in messages[0]["content"]
         assert "知识库片段" in messages[-1]["content"]
         return "根据知识库，先检查保存配置和输出模式。"
 
@@ -59,6 +61,20 @@ def test_qinex_skill_registry() -> None:
     assert match_skill_id("P4 单机版怎么用手机配置") == "qinex_p4"
     assert faq_chunk_allowed_for_categories("## 五、连点 / 压枪\n压枪怎么开", ["06_连点与压枪"])
     assert not faq_chunk_allowed_for_categories("## 七、投屏\n投屏怎么开", ["06_连点与压枪"])
+
+
+def test_clean_chat_answer_removes_markdown() -> None:
+    raw = "## 结论\n**先保存配置**\n- 检查输出模式\n1. 重启 QInEX\n```text\n点保存\n```\n引用：[06](x)"
+    cleaned = _clean_chat_answer(raw)
+
+    assert "##" not in cleaned
+    assert "**" not in cleaned
+    assert "```" not in cleaned
+    assert "- " not in cleaned
+    assert "1. " not in cleaned
+    assert "先保存配置" in cleaned
+    assert "点保存" in cleaned
+    assert "1）重启 QInEX" in cleaned
 
 
 @pytest.mark.asyncio
