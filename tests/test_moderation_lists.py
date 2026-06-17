@@ -42,3 +42,24 @@ async def test_blacklist_add_remove_and_list() -> None:
     result = await service.remove_blacklist(group_id, 1, user_id)
     assert result.success
     assert await service.list_blacklist(group_id) == []
+
+
+@pytest.mark.asyncio
+async def test_global_blacklist_matches_any_group() -> None:
+    group_id = 921000000 + (uuid4().int % 100000000)
+    other_group_id = 922000000 + (uuid4().int % 100000000)
+    user_id = 10000 + (uuid4().int % 100000)
+
+    service = ModerationListService()
+    result = await service.add_blacklist(None, 1, user_id, "global blocked")
+    assert result.success
+    assert (user_id, "global blocked") in await service.list_global_blacklist()
+
+    async with get_session() as session:
+        repo = BlacklistRepo(session)
+        assert await repo.is_blacklisted(group_id, user_id)
+        assert await repo.is_blacklisted(other_group_id, user_id)
+
+    result = await service.remove_blacklist(None, 1, user_id)
+    assert result.success
+    assert await service.list_global_blacklist() == []

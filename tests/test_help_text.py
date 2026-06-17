@@ -17,6 +17,8 @@ def test_help_text_mentions_rule_commands() -> None:
     assert "/管 积分 清零 @用户" in HELP_TEXT
     assert "/管 白名单 添加 @用户 原因" in HELP_TEXT
     assert "/管 黑名单 添加 @用户 原因" in HELP_TEXT
+    assert "/管 黑名单 全局添加 @用户 原因" in HELP_TEXT
+    assert "/管 黑名单 全局列表" in HELP_TEXT
     assert "/管 角色 @用户 普通|可信|小管理" in HELP_TEXT
     assert "/管 角色查 @用户" in HELP_TEXT
     assert "/管 入群审核 开" in HELP_TEXT

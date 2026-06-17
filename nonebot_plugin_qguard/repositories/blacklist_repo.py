@@ -57,3 +57,15 @@ class BlacklistRepo:
             .limit(limit)
         )
         return list(result)
+
+    async def list_global(self, limit: int = 50) -> list[Blacklist]:
+        result = await self.session.scalars(
+            select(Blacklist)
+            .where(
+                Blacklist.group_id.is_(None),
+                or_(Blacklist.expires_at.is_(None), Blacklist.expires_at > datetime.utcnow()),
+            )
+            .order_by(Blacklist.id.desc())
+            .limit(limit)
+        )
+        return list(result)

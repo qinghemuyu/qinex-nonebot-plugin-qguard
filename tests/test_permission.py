@@ -7,6 +7,7 @@ from nonebot_plugin_qguard.config import Config
 from nonebot_plugin_qguard.commands._common import ensure_manager
 from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.repositories.audit_log_repo import AuditLogRepo
+from nonebot_plugin_qguard.repositories.blacklist_repo import BlacklistRepo
 from nonebot_plugin_qguard.services.member_role_service import MemberRoleService
 from nonebot_plugin_qguard.services.permission_service import PermissionService
 from nonebot_plugin_qguard.services.punishment_service import PunishmentService
@@ -68,6 +69,26 @@ async def test_mini_admin_can_mute_but_cannot_kick() -> None:
     assert not kick.success
     assert ops.muted == [(group_id, target_id, 60)]
     assert ops.kicked == []
+
+
+@pytest.mark.asyncio
+async def test_kick_black_adds_group_blacklist() -> None:
+    group_id = 883000000 + (uuid4().int % 100000000)
+    operator_id = Config().qguard_super_admins.copy().pop()
+    target_id = 20000 + (uuid4().int % 100000)
+
+    result = await PunishmentService().kick(
+        FakeOps(),
+        group_id,
+        operator_id,
+        target_id,
+        "blocked",
+        reject_add_request=True,
+    )
+
+    assert result.success
+    async with get_session() as session:
+        assert await BlacklistRepo(session).is_blacklisted(group_id, target_id)
 
 
 @pytest.mark.asyncio

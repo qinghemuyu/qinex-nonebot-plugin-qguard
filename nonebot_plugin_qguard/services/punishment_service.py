@@ -3,6 +3,7 @@ from nonebot_plugin_qguard.constants import DEFAULT_REASON
 from nonebot_plugin_qguard.enums import AuditAction, AuditResult, QGuardRole
 from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.repositories.audit_log_repo import AuditLogRepo
+from nonebot_plugin_qguard.repositories.blacklist_repo import BlacklistRepo
 from nonebot_plugin_qguard.repositories.group_config_repo import GroupConfigRepo
 from nonebot_plugin_qguard.repositories.member_repo import MemberRepo
 from nonebot_plugin_qguard.services.permission_service import PermissionService
@@ -182,6 +183,8 @@ class PunishmentService:
             try:
                 await ops.kick(group_id, target_user_id, reject_add_request)
                 await MemberRepo(session).add_kick(group_id, target_user_id)
+                if reject_add_request:
+                    await BlacklistRepo(session).add(group_id, target_user_id, operator_id, reason)
                 await AuditLogRepo(session).create(
                     group_id=group_id,
                     operator_id=operator_id,
@@ -189,12 +192,13 @@ class PunishmentService:
                     action=action,
                     result=AuditResult.SUCCESS,
                     reason=reason,
+                    metadata={"blacklisted": reject_add_request} if reject_add_request else None,
                 )
                 await session.commit()
                 return ActionResult(
                     success=True,
                     action=str(action),
-                    message="已踢出。" if not reject_add_request else "已踢出并拒绝再次加群。",
+                    message="已踢出。" if not reject_add_request else "已踢出、拒绝再次加群，并加入本群黑名单。",
                 )
             except Exception as exc:
                 await AuditLogRepo(session).create(

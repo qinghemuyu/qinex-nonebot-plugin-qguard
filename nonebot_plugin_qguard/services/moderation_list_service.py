@@ -43,7 +43,7 @@ class ModerationListService:
             items = await WhitelistRepo(session).list_group(group_id)
         return [(item.user_id, item.reason or "") for item in items]
 
-    async def add_blacklist(self, group_id: int, operator_id: int, user_id: int, reason: str | None = None) -> ActionResult:
+    async def add_blacklist(self, group_id: int | None, operator_id: int, user_id: int, reason: str | None = None) -> ActionResult:
         async with get_session() as session:
             await BlacklistRepo(session).add(group_id, user_id, operator_id, reason)
             await AuditLogRepo(session).create(
@@ -55,9 +55,10 @@ class ModerationListService:
                 reason=reason,
             )
             await session.commit()
-        return ActionResult(success=True, action=str(AuditAction.ADD_BLACKLIST), message=f"已加入黑名单：{user_id}")
+        scope = "全局黑名单" if group_id is None else "黑名单"
+        return ActionResult(success=True, action=str(AuditAction.ADD_BLACKLIST), message=f"已加入{scope}：{user_id}")
 
-    async def remove_blacklist(self, group_id: int, operator_id: int, user_id: int) -> ActionResult:
+    async def remove_blacklist(self, group_id: int | None, operator_id: int, user_id: int) -> ActionResult:
         async with get_session() as session:
             removed = await BlacklistRepo(session).remove(group_id, user_id)
             await AuditLogRepo(session).create(
@@ -77,4 +78,9 @@ class ModerationListService:
     async def list_blacklist(self, group_id: int) -> list[tuple[int, str]]:
         async with get_session() as session:
             items = await BlacklistRepo(session).list_group(group_id)
+        return [(item.user_id, item.reason or "") for item in items]
+
+    async def list_global_blacklist(self) -> list[tuple[int, str]]:
+        async with get_session() as session:
+            items = await BlacklistRepo(session).list_global()
         return [(item.user_id, item.reason or "") for item in items]
