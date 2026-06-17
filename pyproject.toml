@@ -27,7 +27,12 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["nonebot_plugin_qguard*", "nonebot_plugin_ai_core*", "nonebot_plugin_log_doctor*"]
+include = [
+    "nonebot_plugin_qguard*",
+    "nonebot_plugin_ai_core*",
+    "nonebot_plugin_log_doctor*",
+    "nonebot_plugin_group_wiki*",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

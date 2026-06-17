@@ -15,7 +15,7 @@ QGuard 是一个基于 NoneBot 2 + OneBot v11 的 QQ 群安全管理插件，面
 - 群管设置：全体禁言开关、机器人回复按指令/聊天分类自动撤回。
 - 消息缓存：缓存群消息，支持最近消息、单条消息查询和误判复盘。
 - 审计日志：人工操作、自动操作、失败、跳过都会写入 `audit_log`。
-- AI 售后中台：AI Core 模型底座、LogDoctor 日志诊断。
+- AI 售后中台：AI Core 模型底座、LogDoctor 日志诊断、GroupWiki 软件知识库问答。
 
 ## 安装
 
@@ -35,6 +35,10 @@ QGUARD_COMMAND_PREFIX=/管
 AI_CORE_API_KEY=sk-change-me
 AI_CORE_MODEL=deepseek-chat
 LOG_DOCTOR_DB_URL=sqlite+aiosqlite:///./data/log_doctor.db
+
+GROUP_WIKI_DB_URL=sqlite+aiosqlite:///./data/group_wiki.db
+GROUP_WIKI_IMPORT_DIR=./知识库
+GROUP_WIKI_SOFTWARE_NAME=QInEX
 ```
 
 ## OneBot v11 连接方式
@@ -155,6 +159,15 @@ src/qinex/plugins/nonebot_plugin_qguard
 /诊断 最近
 /诊断 规则列表
 /报错 ModuleNotFoundError: No module named 'xxx'
+
+/知识 导入本地
+/知识 搜索 压枪
+/知识 问 压枪怎么设置
+/知识 查看 K0001
+/知识 有用 K0001
+/知识 没用 K0001
+/问 投屏卡顿怎么办
+/FAQ S3
 ```
 
 ## 权限说明
@@ -187,6 +200,23 @@ LogDoctor 用于诊断日志、Traceback、依赖缺失、配置错误、OneBot 
 - `/诊断 最近`
 - `/诊断 规则列表`
 - `/报错 <日志文本>`
+
+## GroupWiki 说明
+
+GroupWiki 用于把 `知识库` 目录里的 QInEX 软件文档导入为群内售后问答知识库。默认只围绕 QInEX 文档回答；知识库里没有依据的问题，会提示没有找到足够信息，不会编造软件功能、价格、授权或承诺。
+
+常用入口：
+
+- `/知识 导入本地`
+- `/知识 搜索 <关键词>`
+- `/知识 问 <问题>`
+- `/问 <问题>`
+- `/FAQ <关键词>`
+- `/知识 查看 K0001`
+- `/知识 有用 K0001`
+- `/知识 没用 K0001`
+
+部署时把仓库里的 `知识库` 目录复制到 NoneBot 项目根目录，或用 `GROUP_WIKI_IMPORT_DIR` 指向你的知识库目录。导入后会写入 `wiki_article`、`wiki_article_version`、`wiki_search_index` 和 `wiki_feedback`。
 
 ## 群名片锁说明
 

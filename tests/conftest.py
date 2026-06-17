@@ -1,7 +1,16 @@
 import asyncio
+import os
+from pathlib import Path
+from tempfile import gettempdir
+from uuid import uuid4
 
 import nonebot
 
+
+os.environ.setdefault(
+    "GROUP_WIKI_DB_URL",
+    f"sqlite+aiosqlite:///{Path(gettempdir()).as_posix()}/group_wiki_test_{uuid4().hex}.db",
+)
 
 nonebot.init(driver="~none")
 
