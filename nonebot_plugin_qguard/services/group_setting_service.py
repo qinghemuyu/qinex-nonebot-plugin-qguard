@@ -17,6 +17,40 @@ class RepairResult:
 
 
 class GroupSettingService:
+    async def set_whole_mute(self, ops: GroupOps, group_id: int, operator_id: int, enabled: bool) -> ActionResult:
+        async with get_session() as session:
+            try:
+                await ops.whole_mute(group_id, enabled)
+                await AuditLogRepo(session).create(
+                    group_id=group_id,
+                    operator_id=operator_id,
+                    action=AuditAction.SET_WHOLE_MUTE,
+                    result=AuditResult.SUCCESS,
+                    metadata={"whole_mute_enabled": enabled},
+                )
+                await session.commit()
+                return ActionResult(
+                    success=True,
+                    action=str(AuditAction.SET_WHOLE_MUTE),
+                    message=f"全体禁言已{'开启' if enabled else '关闭'}。",
+                )
+            except Exception as exc:
+                await AuditLogRepo(session).create(
+                    group_id=group_id,
+                    operator_id=operator_id,
+                    action=AuditAction.SET_WHOLE_MUTE,
+                    result=AuditResult.FAILED,
+                    error_message=str(exc),
+                    metadata={"whole_mute_enabled": enabled},
+                )
+                await session.commit()
+                return ActionResult(
+                    success=False,
+                    action=str(AuditAction.SET_WHOLE_MUTE),
+                    message="全体禁言设置失败。",
+                    error=str(exc),
+                )
+
     async def set_group_name(self, ops: GroupOps, group_id: int, operator_id: int, name: str) -> ActionResult:
         name = name.strip()
         if not name:

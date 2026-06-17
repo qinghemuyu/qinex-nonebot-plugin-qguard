@@ -14,6 +14,7 @@ class FakeOps:
         self.bot_role = bot_role
         self.names: list[tuple[int, str]] = []
         self.anonymous: list[tuple[int, bool]] = []
+        self.whole_mutes: list[tuple[int, bool]] = []
         self.titles: list[tuple[int, int, str, int]] = []
 
     async def set_group_name(self, group_id: int, name: str) -> None:
@@ -25,6 +26,9 @@ class FakeOps:
 
     async def set_group_anonymous(self, group_id: int, enable: bool) -> None:
         self.anonymous.append((group_id, enable))
+
+    async def whole_mute(self, group_id: int, enable: bool) -> None:
+        self.whole_mutes.append((group_id, enable))
 
     async def set_special_title(self, group_id: int, user_id: int, title: str, duration: int = -1) -> None:
         self.titles.append((group_id, user_id, title, duration))
@@ -65,6 +69,17 @@ async def test_anonymous_lock_and_patrol_settings() -> None:
     patrol = await PatrolService().patrol_group_settings(ops, group_id, 1)
     assert patrol.checked >= 1
     assert ops.anonymous[-1] == (group_id, False)
+
+
+@pytest.mark.asyncio
+async def test_set_whole_mute_records_action() -> None:
+    group_id = 991500000 + (uuid4().int % 100000000)
+    ops = FakeOps()
+
+    result = await GroupSettingService().set_whole_mute(ops, group_id, 1, True)
+
+    assert result.success
+    assert ops.whole_mutes == [(group_id, True)]
 
 
 @pytest.mark.asyncio

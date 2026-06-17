@@ -16,7 +16,7 @@ group_setting_matcher = on_message(priority=5, block=False)
 @group_setting_matcher.handle()
 async def _(bot: Bot, event: GroupMessageEvent) -> None:
     args = parse_qguard_args(event)
-    if not args or args[0] not in {"群名", "群名锁", "群名修复", "匿名", "匿名锁", "头衔", "巡检", "自动巡检"}:
+    if not args or args[0] not in {"群名", "群名锁", "群名修复", "匿名", "匿名锁", "全体禁言", "全员禁言", "头衔", "巡检", "自动巡检"}:
         return
 
     denied = await ensure_manager(bot, event, QGuardRole.GROUP_OWNER)
@@ -58,6 +58,12 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         if len(args) < 3 or args[1] != "开" or args[2] not in {"开", "关"}:
             await finish_reply(group_setting_matcher, bot, event, "用法：/管 匿名锁 开 开|关，或 /管 匿名锁 关")
         result = await service.lock_anonymous(ops, event.group_id, event.user_id, args[2] == "开")
+        await finish_reply(group_setting_matcher, bot, event, result.message)
+
+    if args[0] in {"全体禁言", "全员禁言"}:
+        if len(args) < 2 or args[1] not in {"开", "关"}:
+            await finish_reply(group_setting_matcher, bot, event, "用法：/管 全体禁言 开|关")
+        result = await service.set_whole_mute(ops, event.group_id, event.user_id, args[1] == "开")
         await finish_reply(group_setting_matcher, bot, event, result.message)
 
     if args[0] == "头衔":

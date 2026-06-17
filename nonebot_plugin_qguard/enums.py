@@ -52,6 +52,7 @@ class AuditAction(StrEnum):
     NEWBIE_PROTECTION_HIT = "newbie_protection_hit"
     SET_MEMBER_ROLE = "set_member_role"
     SET_GROUP_NAME = "set_group_name"
+    SET_WHOLE_MUTE = "set_whole_mute"
     LOCK_GROUP_NAME = "lock_group_name"
     UNLOCK_GROUP_NAME = "unlock_group_name"
     FIX_GROUP_NAME = "fix_group_name"

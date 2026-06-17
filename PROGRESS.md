@@ -23,9 +23,10 @@
 
 ## 本次推进
 
-- 命令公共权限入口 `ensure_manager` 权限不足时写入 `audit_log`。
-- 前置权限拒绝统一记录 `permission_denied / skipped`。
-- 补充权限拒绝审计测试。
+- 新增 `/管 全体禁言 开|关`。
+- 全体禁言走 `GroupSettingService` 和 `GroupOps.whole_mute`。
+- 全体禁言成功/失败写入 `audit_log`。
+- README 和帮助文本同步新增命令。
 
 ## 待继续核对
 

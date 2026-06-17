@@ -31,6 +31,7 @@ def test_help_text_mentions_rule_commands() -> None:
     assert "/管 新人禁图片 开|关" in HELP_TEXT
     assert "/管 群名锁 开 新群名" in HELP_TEXT
     assert "/管 匿名锁 开 开|关" in HELP_TEXT
+    assert "/管 全体禁言 开|关" in HELP_TEXT
     assert "/管 巡检 权限" in HELP_TEXT
     assert "/管 自动巡检 开" in HELP_TEXT
     assert "/管 自动巡检 间隔 5s" in HELP_TEXT
