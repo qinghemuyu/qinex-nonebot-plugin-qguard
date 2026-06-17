@@ -43,8 +43,21 @@ def _is_mention_question(event: MessageEvent) -> bool:
     return bool(text) and not text.startswith("/") and parse_support_command(text) is None
 
 
+async def _is_support_continuation(event: MessageEvent) -> bool:
+    text = event.get_plaintext().strip()
+    if not text or text.startswith("/") or parse_support_command(text) is not None:
+        return False
+    group_id = get_event_group_id(event)
+    if group_id is None:
+        return False
+    config = load_config()
+    service = SupportBotService(config)
+    return await service.should_handle_continuation(text, group_id=group_id, user_id=int(event.user_id))
+
+
 support_command = on_message(rule=Rule(_is_support_command), priority=4, block=True)
 support_mention = on_message(rule=to_me() & Rule(_is_mention_question), priority=18, block=True)
+support_continuation = on_message(rule=Rule(_is_support_continuation), priority=19, block=True)
 support_smart = on_message(rule=Rule(_is_smart_candidate), priority=20, block=False)
 
 
@@ -107,6 +120,17 @@ async def _(bot: Bot, event: MessageEvent) -> None:
     reply = await service.handle_user_issue(text, group_id=group_id, user_id=event.user_id)
     await _notify_owner_if_needed(bot, event, service, config, text, reply)
     await finish_reply(support_mention, bot, event, reply.text)
+
+
+@support_continuation.handle()
+async def _(bot: Bot, event: MessageEvent) -> None:
+    text = event.get_plaintext().strip()
+    config = load_config()
+    service = SupportBotService(config)
+    group_id = get_event_group_id(event)
+    reply = await service.handle_user_issue(text, group_id=group_id, user_id=event.user_id)
+    await _notify_owner_if_needed(bot, event, service, config, text, reply)
+    await finish_reply(support_continuation, bot, event, reply.text)
 
 
 @support_smart.handle()

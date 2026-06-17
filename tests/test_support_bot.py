@@ -20,8 +20,10 @@ class FakeWikiResponse:
 class FakeIntegration:
     def __init__(self, references: list[str] | None = None) -> None:
         self.references = references if references is not None else ["06_连点与压枪#压枪"]
+        self.questions: list[str] = []
 
     async def ask_wiki(self, question: str, *, group_id: int | None, user_id: int | None) -> FakeWikiResponse:
+        self.questions.append(question)
         return FakeWikiResponse(answer=f"知识库回答：{question}", references=self.references)
 
 
@@ -64,6 +66,29 @@ async def test_support_bot_wiki_answer() -> None:
     assert "知识库回答" in reply.text
     assert reply.references == ["06_连点与压枪#压枪"]
     assert reply.state == "answered"
+
+
+@pytest.mark.asyncio
+async def test_support_bot_continues_recent_user_context() -> None:
+    await init_db()
+    group_id = 851000000 + (uuid4().int % 100000000)
+    integration = FakeIntegration()
+    service = SupportBotService(Config(support_bot_conversation_ttl_seconds=180), integration_service=integration)
+
+    first = await service.handle_user_issue("QInEX 滑屏卡顿怎么办", group_id=group_id, user_id=1)
+    assert first.state == "answered"
+
+    assert await service.should_handle_continuation("还是不行", group_id=group_id, user_id=1)
+    assert not await service.should_handle_continuation("谢谢", group_id=group_id, user_id=1)
+    assert not await service.should_handle_continuation("哈哈哈", group_id=group_id, user_id=1)
+
+    second = await service.handle_user_issue("还是不行", group_id=group_id, user_id=1)
+
+    assert second.state == "answered"
+    assert len(integration.questions) == 2
+    assert "上一轮问题" in integration.questions[-1]
+    assert "滑屏卡顿" in integration.questions[-1]
+    assert "还是不行" in integration.questions[-1]
 
 
 @pytest.mark.asyncio
