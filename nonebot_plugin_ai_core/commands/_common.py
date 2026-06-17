@@ -23,7 +23,9 @@ async def send_group_reply(bot: Bot, event: MessageEvent, message: str) -> Any |
     group_id = get_event_group_id(event)
     if group_id is None:
         return None
-    return await bot.send_group_msg(group_id=group_id, message=message)
+    result = await bot.send_group_msg(group_id=group_id, message=message)
+    await schedule_qguard_auto_recall(bot, group_id, result)
+    return result
 
 
 async def finish_reply(matcher: Any, bot: Bot, event: MessageEvent, message: str) -> None:
@@ -31,3 +33,11 @@ async def finish_reply(matcher: Any, bot: Bot, event: MessageEvent, message: str
         await matcher.finish(message)
     await send_group_reply(bot, event, message)
     await matcher.finish()
+
+
+async def schedule_qguard_auto_recall(bot: Bot, group_id: int, send_result: Any) -> None:
+    try:
+        from nonebot_plugin_qguard.services.auto_recall_service import AUTO_RECALL_CHAT, schedule_auto_recall
+    except Exception:
+        return
+    await schedule_auto_recall(bot, group_id, send_result, message_category=AUTO_RECALL_CHAT)

@@ -2,6 +2,10 @@ from nonebot_plugin_qguard.enums import AuditAction, AuditResult
 from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.repositories.audit_log_repo import AuditLogRepo
 from nonebot_plugin_qguard.repositories.group_config_repo import GroupConfigRepo
+from nonebot_plugin_qguard.services.auto_recall_service import (
+    format_auto_recall_categories,
+    serialize_auto_recall_categories,
+)
 from nonebot_plugin_qguard.services.result import ActionResult
 
 
@@ -67,6 +71,29 @@ class GroupConfigService:
                 success=True,
                 action=str(AuditAction.SET_AUTO_DELETE_REPLY),
                 message=message,
+            )
+
+    async def set_auto_delete_reply_categories(
+        self,
+        group_id: int,
+        operator_id: int,
+        categories: set[str],
+    ) -> ActionResult:
+        serialized = serialize_auto_recall_categories(categories)
+        async with get_session() as session:
+            config = await GroupConfigRepo(session).set_auto_delete_reply_categories(group_id, serialized)
+            await AuditLogRepo(session).create(
+                group_id=group_id,
+                operator_id=operator_id,
+                action=AuditAction.SET_AUTO_DELETE_REPLY,
+                result=AuditResult.SUCCESS,
+                metadata={"auto_delete_reply_categories": serialized},
+            )
+            await session.commit()
+            return ActionResult(
+                success=True,
+                action=str(AuditAction.SET_AUTO_DELETE_REPLY),
+                message=f"自动撤回分类已设置为：{format_auto_recall_categories(categories)}。",
             )
 
     async def set_anti_ad_enabled(self, group_id: int, operator_id: int, enabled: bool) -> ActionResult:

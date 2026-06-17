@@ -126,6 +126,12 @@ async def _migrate_sqlite_schema(conn: AsyncConnection) -> None:
     await _add_sqlite_column_if_missing(
         conn,
         "group_config",
+        "auto_delete_reply_categories",
+        "TEXT NOT NULL DEFAULT 'command'",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "group_config",
         "join_review_answer",
         "TEXT NOT NULL DEFAULT ''",
     )

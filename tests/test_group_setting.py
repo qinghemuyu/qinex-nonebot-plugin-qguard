@@ -5,6 +5,8 @@ import pytest
 from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.repositories.group_config_repo import GroupConfigRepo
 from nonebot_plugin_qguard.services.group_setting_service import GroupSettingService
+from nonebot_plugin_qguard.services.group_config_service import GroupConfigService
+from nonebot_plugin_qguard.services.auto_recall_service import AUTO_RECALL_CHAT, AUTO_RECALL_COMMAND
 from nonebot_plugin_qguard.services.patrol_service import PatrolService
 
 
@@ -103,3 +105,19 @@ async def test_special_title_sets_when_bot_owner() -> None:
 
     assert result.success
     assert ops.titles == [(group_id, 2, "title", -1)]
+
+
+@pytest.mark.asyncio
+async def test_auto_delete_reply_categories() -> None:
+    group_id = 994000000 + (uuid4().int % 100000000)
+
+    result = await GroupConfigService().set_auto_delete_reply_categories(
+        group_id,
+        1,
+        {AUTO_RECALL_COMMAND, AUTO_RECALL_CHAT},
+    )
+
+    assert result.success
+    async with get_session() as session:
+        config = await GroupConfigRepo(session).get_or_create(group_id)
+        assert config.auto_delete_reply_categories == "command,chat"

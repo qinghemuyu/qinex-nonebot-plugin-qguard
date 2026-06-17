@@ -58,6 +58,7 @@ class GroupConfigRepo:
             "newbie_block_links": True,
             "newbie_block_images": False,
             "auto_delete_reply_seconds": plugin_config.qguard_default_auto_delete_reply_seconds,
+            "auto_delete_reply_categories": "command",
             "created_at": now,
             "updated_at": now,
         }
@@ -114,6 +115,12 @@ class GroupConfigRepo:
     async def set_auto_delete_reply_seconds(self, group_id: int, seconds: int) -> GroupConfig:
         config = await self.get_or_create(group_id)
         config.auto_delete_reply_seconds = seconds
+        await self.session.flush()
+        return config
+
+    async def set_auto_delete_reply_categories(self, group_id: int, categories: str) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.auto_delete_reply_categories = categories
         await self.session.flush()
         return config
 

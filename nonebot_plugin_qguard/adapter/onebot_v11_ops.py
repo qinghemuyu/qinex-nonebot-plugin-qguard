@@ -25,9 +25,9 @@ class OneBotV11GroupOps(GroupOps):
         except (ActionFailed, NetworkError) as exc:
             raise QGuardActionError(str(exc)) from exc
 
-    async def send_group_msg(self, group_id: int, message: str) -> Any:
+    async def send_group_msg(self, group_id: int, message: str, message_category: str = "command") -> Any:
         result = await self._call(self.bot.send_group_msg, group_id=group_id, message=message)
-        await schedule_auto_recall(self.bot, group_id, result)
+        await schedule_auto_recall(self.bot, group_id, result, message_category=message_category)
         return result
 
     async def delete_msg(self, message_id: int) -> None:

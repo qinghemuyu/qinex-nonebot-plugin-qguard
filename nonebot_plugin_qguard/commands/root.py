@@ -3,6 +3,11 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 
 from nonebot_plugin_qguard.enums import QGuardRole
 from nonebot_plugin_qguard.services.group_config_service import GroupConfigService
+from nonebot_plugin_qguard.services.auto_recall_service import (
+    deserialize_auto_recall_categories,
+    format_auto_recall_categories,
+    parse_auto_recall_categories,
+)
 from nonebot_plugin_qguard.utils.formatter import format_group_status
 from nonebot_plugin_qguard.utils.timeparse import parse_duration
 
@@ -17,6 +22,7 @@ HELP_TEXT = """QGuard 命令
 /管 关闭
 /管 自动撤回 90s
 /管 自动撤回 0
+/管 自动撤回 分类 指令|聊天|全部|关闭
 /管 禁 @用户 10m 原因
 /管 解禁 @用户
 /管 踢 @用户 原因
@@ -119,7 +125,25 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         if len(args) < 2:
             config = await service.status(event.group_id)
             current = "关闭" if config.auto_delete_reply_seconds <= 0 else f"{config.auto_delete_reply_seconds} 秒"
-            await finish_reply(root_matcher, bot, event, f"当前自动撤回：{current}。\n用法：/管 自动撤回 90s，关闭用 /管 自动撤回 0")
+            categories = format_auto_recall_categories(
+                deserialize_auto_recall_categories(config.auto_delete_reply_categories)
+            )
+            await finish_reply(
+                root_matcher,
+                bot,
+                event,
+                f"当前自动撤回：{current}，分类：{categories}。\n"
+                "用法：/管 自动撤回 90s，关闭用 /管 自动撤回 0，分类用 /管 自动撤回 分类 指令|聊天|全部|关闭",
+            )
+        if args[1] in {"分类", "类型"}:
+            if len(args) < 3:
+                await finish_reply(root_matcher, bot, event, "用法：/管 自动撤回 分类 指令|聊天|全部|关闭")
+            try:
+                categories = parse_auto_recall_categories(args[2])
+            except ValueError as exc:
+                await finish_reply(root_matcher, bot, event, str(exc))
+            result = await service.set_auto_delete_reply_categories(event.group_id, event.user_id, categories)
+            await finish_reply(root_matcher, bot, event, result.message)
         try:
             seconds = parse_duration(args[1])
         except ValueError as exc:

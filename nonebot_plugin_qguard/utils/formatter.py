@@ -1,10 +1,17 @@
 from nonebot_plugin_qguard.models.audit_log import AuditLog
 from nonebot_plugin_qguard.models.group_config import GroupConfig
 from nonebot_plugin_qguard.models.message_cache import MessageCache
+from nonebot_plugin_qguard.services.auto_recall_service import (
+    deserialize_auto_recall_categories,
+    format_auto_recall_categories,
+)
 
 
 def format_group_status(config: GroupConfig) -> str:
     auto_delete_text = "关闭" if config.auto_delete_reply_seconds <= 0 else f"{config.auto_delete_reply_seconds} 秒"
+    auto_delete_categories = format_auto_recall_categories(
+        deserialize_auto_recall_categories(config.auto_delete_reply_categories)
+    )
     join_answer_text = "已设置" if config.join_review_answer.strip() else "未设置"
     newbie_rules = ["链接"] if config.newbie_block_links else []
     if config.newbie_block_images:
@@ -28,7 +35,7 @@ def format_group_status(config: GroupConfig) -> str:
         f"广告检测：{'是' if config.anti_ad_enabled else '否'}\n"
         f"刷屏检测：{'是' if config.anti_spam_enabled else '否'}\n"
         f"默认禁言：{config.default_mute_seconds} 秒\n"
-        f"自动撤回：{auto_delete_text}"
+        f"自动撤回：{auto_delete_text}（{auto_delete_categories}）"
     )
 
 
