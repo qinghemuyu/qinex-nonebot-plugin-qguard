@@ -58,3 +58,88 @@ async def test_join_review_rejects_blacklisted_user() -> None:
     assert result.handled
     assert result.approved is False
     assert ops.requests == [("flag-2", "add", False, "黑名单用户禁止入群。")]
+
+
+@pytest.mark.asyncio
+async def test_join_review_rejects_empty_comment() -> None:
+    group_id = 941000000 + (uuid4().int % 100000000)
+    user_id = 10000 + (uuid4().int % 100000)
+    service = JoinReviewService()
+    service.reset_request_history()
+    await service.set_enabled(group_id, 1, True)
+
+    ops = FakeOps()
+    result = await service.review_group_request(
+        ops,
+        group_id=group_id,
+        user_id=user_id,
+        flag="flag-empty",
+        sub_type="add",
+        comment=" ",
+        operator_id=9,
+    )
+
+    assert result.handled
+    assert result.approved is False
+    assert ops.requests == [("flag-empty", "add", False, "入群申请理由为空。")]
+
+
+@pytest.mark.asyncio
+async def test_join_review_rejects_ad_comment_before_answer() -> None:
+    group_id = 942000000 + (uuid4().int % 100000000)
+    user_id = 10000 + (uuid4().int % 100000)
+    service = JoinReviewService()
+    service.reset_request_history()
+    await service.set_answer(group_id, 1, "open sesame")
+    await service.set_enabled(group_id, 1, True)
+
+    ops = FakeOps()
+    result = await service.review_group_request(
+        ops,
+        group_id=group_id,
+        user_id=user_id,
+        flag="flag-ad",
+        sub_type="add",
+        comment="open sesame 加群 123456 https://example.com",
+        operator_id=9,
+    )
+
+    assert result.handled
+    assert result.approved is False
+    assert ops.requests == [("flag-ad", "add", False, "入群申请包含广告或引流内容。")]
+
+
+@pytest.mark.asyncio
+async def test_join_review_rejects_repeated_requests() -> None:
+    group_id = 943000000 + (uuid4().int % 100000000)
+    user_id = 10000 + (uuid4().int % 100000)
+    service = JoinReviewService()
+    service.reset_request_history()
+    await service.set_enabled(group_id, 1, True)
+
+    for index in range(2):
+        result = await service.review_group_request(
+            FakeOps(),
+            group_id=group_id,
+            user_id=user_id,
+            flag=f"flag-repeat-{index}",
+            sub_type="add",
+            comment="hello",
+            operator_id=9,
+        )
+        assert not result.handled
+
+    ops = FakeOps()
+    result = await service.review_group_request(
+        ops,
+        group_id=group_id,
+        user_id=user_id,
+        flag="flag-repeat-3",
+        sub_type="add",
+        comment="hello",
+        operator_id=9,
+    )
+
+    assert result.handled
+    assert result.approved is False
+    assert ops.requests == [("flag-repeat-3", "add", False, "入群申请过于频繁。")]
