@@ -91,14 +91,14 @@ class IntentService:
             return "screenhub_usage"
         if any(word in text for word in ("授权码", "注册码", "订单", "退款", "换绑")):
             return "privacy_or_license"
-        if any(word in text for word in ("压枪", "连点", "映射", "按键", "鼠标", "没反应")):
+        if any(word in text for word in ("压枪", "连点", "映射", "按键", "鼠标", "没反应", "不生效", "按键没用", "没有触点", "无触点")):
             return "mapping_not_working"
+        if any(word in text for word in ("卡顿", "延迟", "掉帧", "丢帧", "一卡一卡", "卡卡", "一顿一顿", "忽快忽慢", "慢", "慢半拍", "不跟手", "触摸点黏", "滑屏不顺")):
+            return "performance_problem"
+        if any(word in text for word in ("打不开", "启动", "闪退", "崩溃", "crash", "空白", "webview2")):
+            return "launch_failed"
         if any(word in text for word in ("配置", "怎么", "如何", "教程", "不会")):
             return "config_problem"
-        if any(word in text for word in ("卡顿", "延迟", "掉帧", "丢帧", "一卡一卡", "卡卡", "一顿一顿", "忽快忽慢", "慢")):
-            return "performance_problem"
-        if any(word in text for word in ("打不开", "启动", "闪退", "崩溃", "crash")):
-            return "launch_failed"
         return "usage_question"
 
     @staticmethod

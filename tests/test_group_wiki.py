@@ -14,6 +14,7 @@ from nonebot_plugin_group_wiki.services.rag_service import RAGService, _build_kn
 from nonebot_plugin_group_wiki.services.search_service import WikiSearchService, expand_search_query
 from nonebot_plugin_group_wiki.services.skill_registry import (
     FAQ_CATEGORY,
+    TERMS_CATEGORY,
     categories_for_skill_ids,
     faq_chunk_allowed_for_categories,
     match_skill_id,
@@ -31,6 +32,7 @@ class FakeAICore:
         self.calls += 1
         assert "猫娘售后诊断助手" in messages[0]["content"]
         assert "不是复述知识库" in messages[0]["content"]
+        assert "上位机" in messages[0]["content"]
         assert "先给最可能原因" in messages[0]["content"]
         assert "不要使用 Markdown 格式" in messages[0]["content"]
         assert "知识库片段" in messages[-1]["content"]
@@ -67,15 +69,19 @@ def test_markdown_helpers_and_splitter() -> None:
 
 def test_qinex_skill_registry() -> None:
     categories, rejected = categories_for_skill_ids(["qinex_recoil_click", "qinex_p4", "qinex_activation"])
+    term_categories, term_rejected = categories_for_skill_ids(["qinex_terms"])
 
     assert "06_连点与压枪" in categories
     assert "08_P4单机版" in categories
     assert "11_激活与安全说明" in categories
+    assert TERMS_CATEGORY in term_categories
     assert FAQ_CATEGORY not in categories
     assert rejected == []
+    assert term_rejected == []
     assert match_skill_id("P4 单机版怎么用手机配置") == "qinex_p4"
     assert match_skill_id("S3板子要怎么激活") == "qinex_activation"
     assert match_skill_id("最新版上位机有时候一卡一卡的") == "qinex_troubleshooting"
+    assert match_skill_id("上位机是什么意思") == "qinex_terms"
     assert faq_chunk_allowed_for_categories("## 五、连点 / 压枪\n压枪怎么开", ["06_连点与压枪"])
     assert not faq_chunk_allowed_for_categories("## 七、投屏\n投屏怎么开", ["06_连点与压枪"])
 
@@ -117,6 +123,16 @@ def test_expand_search_query_for_pc_client_jank() -> None:
     assert "PC端" in expanded
     assert "卡顿" in expanded
     assert "回报率" in expanded
+
+
+def test_expand_search_query_for_common_support_phrases() -> None:
+    no_touch = expand_search_query("上位机保存了但是游戏里没有触点")
+    launch = expand_search_query("配置面板空白打不开")
+
+    assert "保存配置" in no_touch
+    assert "管理员权限" in no_touch
+    assert "WebView2" in launch
+    assert "完整解压" in launch
 
 
 @pytest.mark.asyncio

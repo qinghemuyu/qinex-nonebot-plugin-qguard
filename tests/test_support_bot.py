@@ -60,6 +60,8 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     s3_activation = await service.classify("S3板子要怎么激活")
     blocked_license = await service.classify("S3板子授权码怎么破解")
     pc_jank = await service.classify("最新版上位机有那种掉帧的感觉，有时候一卡一卡的")
+    panel_blank = await service.classify("上位机配置面板空白打不开")
+    no_touch = await service.classify("保存了但是游戏里没有触点")
     out_scope = await service.classify("Python 怎么安装依赖")
 
     assert log_intent.reply_strategy == "reject"
@@ -70,6 +72,10 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     assert blocked_license.reply_strategy == "safe_no_answer"
     assert pc_jank.reply_strategy == "answer"
     assert pc_jank.issue_type == "performance_problem"
+    assert panel_blank.reply_strategy == "answer"
+    assert panel_blank.issue_type == "launch_failed"
+    assert no_touch.reply_strategy == "answer"
+    assert no_touch.issue_type == "mapping_not_working"
     assert out_scope.reply_strategy == "reject"
 
 

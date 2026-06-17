@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 FAQ_CATEGORY = "FAQ问答对"
+TERMS_CATEGORY = "12_术语别名与口语化问法"
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +28,7 @@ WIKI_SKILLS: tuple[WikiSkill, ...] = (
             "02_硬件模式(ESP32-S3)接线与上手",
             "03_免硬件模式(数据线ADB)",
             "11_激活与安全说明",
+            TERMS_CATEGORY,
             FAQ_CATEGORY,
         ),
         keywords=(
@@ -57,7 +59,7 @@ WIKI_SKILLS: tuple[WikiSkill, ...] = (
     WikiSkill(
         skill_id="qinex_mapping",
         name="映射与配置面板",
-        categories=("04_配置面板-基础布键", "05_高级映射(开镜背包载具手势蓄力)", FAQ_CATEGORY),
+        categories=("04_配置面板-基础布键", "05_高级映射(开镜背包载具手势蓄力)", TERMS_CATEGORY, FAQ_CATEGORY),
         keywords=(
             "布键",
             "映射",
@@ -74,6 +76,9 @@ WIKI_SKILLS: tuple[WikiSkill, ...] = (
             "上位机",
             "pc端",
             "电脑端",
+            "配置面板",
+            "布键页面",
+            "web ui",
         ),
     ),
     WikiSkill(
@@ -86,19 +91,32 @@ WIKI_SKILLS: tuple[WikiSkill, ...] = (
     WikiSkill(
         skill_id="qinex_screenhub",
         name="投屏与手机 APP",
-        categories=("07_投屏ScreenHub", "09_QInEScreen手机APP", FAQ_CATEGORY),
-        keywords=("投屏", "screenhub", "控制模式", "画面", "卡顿", "码率", "qinescreen", "vpointer", "手机app", "手机 app"),
+        categories=("07_投屏ScreenHub", "09_QInEScreen手机APP", TERMS_CATEGORY, FAQ_CATEGORY),
+        keywords=(
+            "投屏",
+            "screenhub",
+            "控制模式",
+            "画面",
+            "卡顿",
+            "码率",
+            "qinescreen",
+            "vpointer",
+            "手机app",
+            "手机 app",
+            "手机端",
+            "点对点",
+        ),
     ),
     WikiSkill(
         skill_id="qinex_p4",
         name="P4 单机版",
-        categories=("08_P4单机版", "09_QInEScreen手机APP", FAQ_CATEGORY),
-        keywords=("p4", "单机版", "不要电脑", "板载配置页", "kmboxnet", "触摸校准", "手机配p4", "激活页"),
+        categories=("08_P4单机版", "09_QInEScreen手机APP", TERMS_CATEGORY, FAQ_CATEGORY),
+        keywords=("p4", "单机版", "不要电脑", "板载配置页", "kmboxnet", "触摸校准", "手机配p4", "激活页", "不开电脑"),
     ),
     WikiSkill(
         skill_id="qinex_troubleshooting",
         name="排障与卡顿",
-        categories=("10_排障与卡顿速查", FAQ_CATEGORY),
+        categories=("10_排障与卡顿速查", TERMS_CATEGORY, FAQ_CATEGORY),
         keywords=(
             "卡顿",
             "延迟",
@@ -108,9 +126,22 @@ WIKI_SKILLS: tuple[WikiSkill, ...] = (
             "卡卡",
             "一顿一顿",
             "忽快忽慢",
+            "慢半拍",
+            "拖枪不跟手",
+            "触摸点黏",
+            "滑屏不顺",
             "连不上",
             "没反应",
             "不生效",
+            "按键没用",
+            "没有触点",
+            "无触点",
+            "打不开",
+            "启动不了",
+            "闪退",
+            "配置面板打不开",
+            "空白",
+            "webview2",
             "管理员权限",
             "回报率",
             "异步",
@@ -121,6 +152,32 @@ WIKI_SKILLS: tuple[WikiSkill, ...] = (
             "电脑端",
             "最新版",
             "新版",
+        ),
+    ),
+    WikiSkill(
+        skill_id="qinex_terms",
+        name="术语别名与口语化问法",
+        categories=(TERMS_CATEGORY, FAQ_CATEGORY),
+        keywords=(
+            "术语",
+            "别名",
+            "叫法",
+            "说法",
+            "是什么意思",
+            "什么意思",
+            "是什么东西",
+            "上位机",
+            "pc端",
+            "pc 端",
+            "电脑端",
+            "电脑版",
+            "电脑程序",
+            "映射软件",
+            "配置面板",
+            "手机端",
+            "手机app",
+            "qinescreen",
+            "vpointer",
         ),
     ),
 )
