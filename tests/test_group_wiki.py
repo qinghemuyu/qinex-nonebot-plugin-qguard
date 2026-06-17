@@ -66,13 +66,15 @@ def test_markdown_helpers_and_splitter() -> None:
 
 
 def test_qinex_skill_registry() -> None:
-    categories, rejected = categories_for_skill_ids(["qinex_recoil_click", "qinex_p4"])
+    categories, rejected = categories_for_skill_ids(["qinex_recoil_click", "qinex_p4", "qinex_activation"])
 
     assert "06_连点与压枪" in categories
     assert "08_P4单机版" in categories
+    assert "11_激活与安全说明" in categories
     assert FAQ_CATEGORY not in categories
     assert rejected == []
     assert match_skill_id("P4 单机版怎么用手机配置") == "qinex_p4"
+    assert match_skill_id("S3板子要怎么激活") == "qinex_activation"
     assert faq_chunk_allowed_for_categories("## 五、连点 / 压枪\n压枪怎么开", ["06_连点与压枪"])
     assert not faq_chunk_allowed_for_categories("## 七、投屏\n投屏怎么开", ["06_连点与压枪"])
 

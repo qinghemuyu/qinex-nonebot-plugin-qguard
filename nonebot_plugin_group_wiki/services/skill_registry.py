@@ -26,9 +26,16 @@ WIKI_SKILLS: tuple[WikiSkill, ...] = (
             "01_产品简介与选型",
             "02_硬件模式(ESP32-S3)接线与上手",
             "03_免硬件模式(数据线ADB)",
+            "11_激活与安全说明",
             FAQ_CATEGORY,
         ),
-        keywords=("qinex", "是什么", "选哪个", "硬件模式", "免硬件", "adb", "s3", "连接", "上手"),
+        keywords=("qinex", "是什么", "选哪个", "硬件模式", "免硬件", "adb", "s3", "连接", "上手", "激活", "授权"),
+    ),
+    WikiSkill(
+        skill_id="qinex_activation",
+        name="激活与安全说明",
+        categories=("11_激活与安全说明", FAQ_CATEGORY),
+        keywords=("激活", "授权", "授权码", "注册码", "s3", "p4", "板子", "硬件", "板子激活", "s3激活", "p4激活", "激活入口", "怎么填", "哪里填"),
     ),
     WikiSkill(
         skill_id="qinex_mapping",

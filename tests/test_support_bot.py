@@ -57,11 +57,16 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     log_intent = await service.classify("Traceback ModuleNotFoundError: No module named x")
     short_intent = await service.classify("打不开")
     license_intent = await service.classify("授权激活失败怎么处理")
+    s3_activation = await service.classify("S3板子要怎么激活")
+    blocked_license = await service.classify("S3板子授权码怎么破解")
     out_scope = await service.classify("Python 怎么安装依赖")
 
     assert log_intent.reply_strategy == "reject"
     assert short_intent.reply_strategy == "ask_followup"
     assert license_intent.reply_strategy == "safe_no_answer"
+    assert s3_activation.reply_strategy == "answer"
+    assert s3_activation.issue_type == "activation_usage"
+    assert blocked_license.reply_strategy == "safe_no_answer"
     assert out_scope.reply_strategy == "reject"
 
 
@@ -76,6 +81,20 @@ async def test_support_bot_wiki_answer() -> None:
     assert "知识库回答" in reply.text
     assert reply.references == ["06_连点与压枪#压枪"]
     assert reply.state == "answered"
+
+
+@pytest.mark.asyncio
+async def test_support_bot_allows_safe_s3_activation_question() -> None:
+    await init_db()
+    group_id = 850500000 + (uuid4().int % 100000000)
+    integration = FakeIntegration(references=["11_激活与安全说明#S3 硬件板子怎么激活"])
+    service = SupportBotService(Config(), integration_service=integration)
+
+    reply = await service.handle_user_issue("S3板子要怎么激活", group_id=group_id, user_id=1)
+
+    assert reply.state == "answered"
+    assert reply.references == ["11_激活与安全说明#S3 硬件板子怎么激活"]
+    assert integration.questions == ["S3板子要怎么激活"]
 
 
 @pytest.mark.asyncio

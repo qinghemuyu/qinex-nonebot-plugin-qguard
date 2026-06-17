@@ -6,6 +6,22 @@ from nonebot_plugin_support_bot.services.schemas import SupportIntent
 
 
 LOW_QUALITY = {"打不开", "用不了", "没反应", "报错了", "不会用", "还是不行", "不行"}
+LICENSE_TERMS = ("授权", "激活", "授权码", "注册码", "订单", "退款", "换绑", "破解", "绕过", "密钥")
+BLOCKED_LICENSE_TERMS = ("订单", "退款", "换绑", "破解", "绕过", "密钥", "生成", "算法", "找回", "查询")
+SAFE_ACTIVATION_MARKERS = (
+    "s3",
+    "p4",
+    "板子",
+    "硬件",
+    "设备",
+    "单机",
+    "esp32",
+    "激活入口",
+    "怎么激活",
+    "如何激活",
+    "怎么填",
+    "哪里填",
+)
 
 
 class IntentService:
@@ -16,7 +32,7 @@ class IntentService:
         normalized = text.strip().lower()
         skill_registry = _get_skill_registry()
         skill = skill_registry.match_skill_id(text)
-        if any(word in normalized for word in ("授权", "激活", "授权码", "注册码", "订单", "退款", "换绑", "破解", "绕过", "密钥")) and "p4" not in normalized:
+        if _is_license_or_privacy_question(normalized) and not _is_safe_activation_question(normalized):
             return SupportIntent(
                 intent="privacy_or_license",
                 confidence=0.88,
@@ -67,6 +83,8 @@ class IntentService:
 
     @staticmethod
     def _guess_issue_type(text: str) -> str:
+        if _is_safe_activation_question(text):
+            return "activation_usage"
         if "p4" in text:
             return "p4_usage"
         if any(word in text for word in ("投屏", "screenhub", "qinescreen", "vpointer")):
@@ -110,3 +128,15 @@ def _get_skill_registry() -> ModuleType:
         )
         return importlib.import_module(sibling_module)
     raise ModuleNotFoundError("nonebot_plugin_group_wiki")
+
+
+def _is_license_or_privacy_question(text: str) -> bool:
+    return any(word in text for word in LICENSE_TERMS)
+
+
+def _is_safe_activation_question(text: str) -> bool:
+    if any(word in text for word in BLOCKED_LICENSE_TERMS):
+        return False
+    if "激活" not in text and "授权" not in text and "授权码" not in text and "注册码" not in text:
+        return False
+    return any(marker in text for marker in SAFE_ACTIVATION_MARKERS)
