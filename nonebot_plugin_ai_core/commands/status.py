@@ -4,6 +4,8 @@ from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 from nonebot_plugin_ai_core.config import load_config
 from nonebot_plugin_ai_core.service import AICoreService
 
+from ._common import finish_reply, is_ai_core_admin
+
 status_matcher = on_message(priority=5, block=False)
 
 
@@ -13,11 +15,14 @@ async def _(bot: Bot, event: MessageEvent) -> None:
     if text != "/ai状态":
         return
     config = load_config()
-    if event.user_id not in config.ai_core_super_admins:
-        await status_matcher.finish("权限不足。")
+    if not is_ai_core_admin(event, config):
+        await finish_reply(status_matcher, bot, event, "权限不足。")
     summary = await AICoreService(config).usage_summary()
     cache_state = "开启" if config.ai_core_enable_cache else "关闭"
-    await status_matcher.finish(
+    await finish_reply(
+        status_matcher,
+        bot,
+        event,
         "AI Core 状态\n"
         f"Provider：{config.ai_core_provider}\n"
         f"Model：{config.ai_core_model}\n"

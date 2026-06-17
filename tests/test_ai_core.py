@@ -5,6 +5,7 @@ import pytest
 from pydantic import BaseModel
 
 from nonebot_plugin_ai_core.client.base import AIClientResponse
+from nonebot_plugin_ai_core.commands.test_call import parse_ai_test_prompt
 from nonebot_plugin_ai_core.config import Config
 from nonebot_plugin_ai_core.exceptions import AIRateLimitExceeded
 from nonebot_plugin_ai_core.models import init_db
@@ -44,6 +45,12 @@ def test_parse_model_from_markdown_json() -> None:
 
     assert result.label == "ok"
     assert result.score == 9
+
+
+def test_parse_ai_test_prompt() -> None:
+    assert parse_ai_test_prompt("/ai测试") == "请回复：AI Core 已连通。"
+    assert parse_ai_test_prompt("/ai测试 你好") == "你好"
+    assert parse_ai_test_prompt("/ai状态") is None
 
 
 @pytest.mark.asyncio

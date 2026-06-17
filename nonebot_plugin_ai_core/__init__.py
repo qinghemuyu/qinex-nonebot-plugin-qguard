@@ -20,5 +20,6 @@ if driver is not None:
         await init_db()
 
 from .commands import status as status  # noqa: E402,F401
+from .commands import test_call as test_call  # noqa: E402,F401
 
 __all__ = ["AICoreService", "get_ai_core"]
