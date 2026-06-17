@@ -177,7 +177,13 @@ class SupportBotService:
         previous_context: dict | None = None,
     ) -> SupportReply:
         try:
-            wiki_response = await self.integration_service.ask_wiki(text, group_id=group_id, user_id=user_id)
+            search_query = _build_search_query(text=text, user_text=user_text, previous_context=previous_context)
+            wiki_response = await self.integration_service.ask_wiki(
+                text,
+                group_id=group_id,
+                user_id=user_id,
+                search_query=search_query,
+            )
         except Exception as exc:
             await self._save_session(
                 group_id,
@@ -380,6 +386,16 @@ def _build_contextual_question(previous_context: dict, user_text: str) -> str:
         f"用户补充：{user_text.strip()[:500]}\n"
         "请基于当前群可用知识库给出下一步排查。"
     )
+
+
+def _build_search_query(*, text: str, user_text: str | None, previous_context: dict | None) -> str:
+    if previous_context is None:
+        return text
+    previous_question = str(previous_context.get("text") or previous_context.get("latest_user_text") or "").strip()
+    current = str(user_text or "").strip()
+    if previous_question and current:
+        return f"{previous_question}\n{current}"
+    return current or previous_question or text
 
 
 def _build_session_context(

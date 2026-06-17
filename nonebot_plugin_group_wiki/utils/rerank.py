@@ -30,6 +30,7 @@ class SearchHit:
     score: float
     snippet: str
     reference: str = ""
+    chunk_text: str = ""
 
 
 def extract_query_terms(query: str) -> list[str]:
@@ -66,7 +67,13 @@ def score_article(query: str, article: WikiArticle, chunks: list[str]) -> Search
         return None
     chunk = best_chunk(terms, chunks or [article.summary, article.content_md])
     snippet = format_snippet(chunk)
-    return SearchHit(article=article, score=score + article.hit_count * 0.1, snippet=snippet, reference=reference_from_chunk(article, chunk))
+    return SearchHit(
+        article=article,
+        score=score + article.hit_count * 0.1,
+        snippet=snippet,
+        reference=reference_from_chunk(article, chunk),
+        chunk_text=chunk.strip(),
+    )
 
 
 def best_chunk(terms: list[str], chunks: list[str]) -> str:

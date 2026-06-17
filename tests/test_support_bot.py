@@ -22,9 +22,18 @@ class FakeIntegration:
     def __init__(self, references: list[str] | None = None) -> None:
         self.references = references if references is not None else ["06_连点与压枪#压枪"]
         self.questions: list[str] = []
+        self.search_queries: list[str | None] = []
 
-    async def ask_wiki(self, question: str, *, group_id: int | None, user_id: int | None) -> FakeWikiResponse:
+    async def ask_wiki(
+        self,
+        question: str,
+        *,
+        group_id: int | None,
+        user_id: int | None,
+        search_query: str | None = None,
+    ) -> FakeWikiResponse:
         self.questions.append(question)
+        self.search_queries.append(search_query)
         return FakeWikiResponse(answer=f"知识库回答：{question}", references=self.references)
 
 
@@ -94,6 +103,10 @@ async def test_support_bot_continues_recent_user_context() -> None:
     assert "上一轮问题" in integration.questions[-1]
     assert "滑屏卡顿" in integration.questions[-1]
     assert "还是不行" in integration.questions[-1]
+    assert integration.search_queries[-1] is not None
+    assert "滑屏卡顿" in integration.search_queries[-1]
+    assert "还是不行" in integration.search_queries[-1]
+    assert "请基于当前群可用知识库" not in integration.search_queries[-1]
 
 
 @pytest.mark.asyncio

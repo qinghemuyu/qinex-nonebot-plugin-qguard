@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -9,7 +10,7 @@ from nonebot_plugin_group_wiki.config import Config
 from nonebot_plugin_group_wiki.models import init_db
 from nonebot_plugin_group_wiki.services.article_service import GroupWikiService
 from nonebot_plugin_group_wiki.services.import_service import ImportService
-from nonebot_plugin_group_wiki.services.rag_service import RAGService, _clean_chat_answer
+from nonebot_plugin_group_wiki.services.rag_service import RAGService, _build_knowledge_context, _clean_chat_answer
 from nonebot_plugin_group_wiki.services.search_service import WikiSearchService
 from nonebot_plugin_group_wiki.services.skill_registry import (
     FAQ_CATEGORY,
@@ -28,10 +29,23 @@ class FakeAICore:
 
     async def chat(self, messages: list[dict], **kwargs) -> str:
         self.calls += 1
-        assert "猫娘知识库问答助手" in messages[0]["content"]
+        assert "猫娘售后诊断助手" in messages[0]["content"]
+        assert "不是复述知识库" in messages[0]["content"]
+        assert "先给最可能原因" in messages[0]["content"]
         assert "不要使用 Markdown 格式" in messages[0]["content"]
         assert "知识库片段" in messages[-1]["content"]
-        return "根据知识库，先检查保存配置和输出模式。"
+        assert "请直接给用户能照着操作的诊断回复" in messages[-1]["content"]
+        assert kwargs["temperature"] == 0.45
+        return "喵，优先判断是配置没有保存或输出模式没选对。\n一、先保存配置\n二、再检查输出模式\n引用：06_连点与压枪#压枪"
+
+
+@dataclass
+class FakeSearchService:
+    last_query: str = ""
+
+    async def search(self, query: str, *, group_id: int | None = None, limit: int = 5) -> list:
+        self.last_query = query
+        return []
 
 
 def test_parse_wiki_command() -> None:
@@ -77,6 +91,36 @@ def test_clean_chat_answer_removes_markdown() -> None:
     assert "1）重启 QInEX" in cleaned
 
 
+def test_build_knowledge_context_keeps_matched_chunk() -> None:
+    chunk = "## 滑屏卡顿\n常见原因是回报率过高、异步设置不合适，先降低回报率，再检查控制模式。"
+    hit = SimpleNamespace(
+        reference="10_排障与卡顿速查#滑屏卡顿",
+        article=SimpleNamespace(title="排障与卡顿速查", summary=""),
+        snippet="常见原因是回报率过高",
+        chunk_text=chunk,
+    )
+
+    context = _build_knowledge_context([hit])
+
+    assert "片段1 [10_排障与卡顿速查#滑屏卡顿]" in context
+    assert "回报率过高" in context
+    assert "检查控制模式" in context
+
+
+@pytest.mark.asyncio
+async def test_rag_uses_clean_search_query() -> None:
+    search = FakeSearchService()
+
+    await RAGService(Config(group_wiki_enable_ai=False), search_service=search).ask(
+        "这是带连续对话元信息的问题",
+        group_id=1,
+        user_id=1,
+        search_query="滑屏卡顿 还是不行",
+    )
+
+    assert search.last_query == "滑屏卡顿 还是不行"
+
+
 @pytest.mark.asyncio
 async def test_group_wiki_add_search_ask_and_feedback() -> None:
     await init_db()
@@ -99,7 +143,7 @@ async def test_group_wiki_add_search_ask_and_feedback() -> None:
     assert hits
     assert hits[0].article.article_no == article.article_no
     assert response.references == [article.article_no]
-    assert "知识库" in response.answer
+    assert "优先判断" in response.answer
     assert ok
 
 
