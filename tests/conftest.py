@@ -11,6 +11,10 @@ os.environ.setdefault(
     "GROUP_WIKI_DB_URL",
     f"sqlite+aiosqlite:///{Path(gettempdir()).as_posix()}/group_wiki_test_{uuid4().hex}.db",
 )
+os.environ.setdefault(
+    "SUPPORT_BOT_DB_URL",
+    f"sqlite+aiosqlite:///{Path(gettempdir()).as_posix()}/support_bot_test_{uuid4().hex}.db",
+)
 
 nonebot.init(driver="~none")
 

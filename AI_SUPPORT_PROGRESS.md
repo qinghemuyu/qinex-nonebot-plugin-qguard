@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-正在开发 `NoneBot AI 售后中台三件套`。公共底座 `nonebot_plugin_ai_core`、日志诊断 `nonebot_plugin_log_doctor`、软件知识库问答 `nonebot_plugin_group_wiki` 已落地，下一步推进 SupportBot 轻量工单。
+正在开发 `NoneBot AI 售后中台三件套`。公共底座 `nonebot_plugin_ai_core`、日志诊断 `nonebot_plugin_log_doctor`、软件知识库问答 `nonebot_plugin_group_wiki`、售后入口 `nonebot_plugin_support_bot` MVP 已落地。
 
 ## 已完成
 
@@ -45,8 +45,22 @@
 - GroupWiki 群内回复标记为聊天消息，默认不会被 QGuard 自动撤回。
 - 新增 GroupWiki 单元测试。
 
+### SupportBot
+
+- 新增 `nonebot_plugin_support_bot` 插件骨架。
+- 支持 `/客服 帮助`、`/客服 状态`、`/客服 开启/关闭`、`/客服 模式 命令触发/智能监听`。
+- 支持 `/求助`、`/售后`、`/不会用` 统一进入售后接待。
+- 支持 `/报错` 统一接入 LogDoctor，避免 LogDoctor 与 SupportBot 双回复。
+- 支持 `/人工` 和 `/工单 创建/我的/列表/查看/接单/备注/关闭/重开`。
+- 新增 SQLite 表：`support_group_config`、`support_session`、`support_ticket`、`support_ticket_message`。
+- 支持规则版 `SupportIntent` 意图识别：知识库问答、日志诊断、追问信息、转人工工单。
+- 支持保守智能监听，默认关闭，管理员开启后才监听非命令售后关键词。
+- SupportBot 群内回复标记为聊天消息，默认不会被 QGuard 自动撤回。
+- 新增本地插件加载顺序回归测试，覆盖 AI Core 在后加载时的依赖解析问题。
+- 新增 SupportBot 单元测试。
+
 ## 下一步
 
-- 开发 `nonebot_plugin_support_bot`：`/求助`、`/报错`、`/人工`、轻量工单。
-- 打通 LogDoctor -> GroupWiki -> SupportBot 的升级链路：规则诊断失败时转知识库问答，仍未解决时转人工工单。
+- 增强 SupportBot：AI 结构化意图识别、用户说“还是不行”自动关联上一轮会话并建单。
+- 打通 LogDoctor -> GroupWiki -> SupportBot 的知识沉淀链路：结案一键生成候选知识。
 - 继续完善 LogDoctor：上传文件诊断、手动添加规则、生成知识库候选、转工单。
