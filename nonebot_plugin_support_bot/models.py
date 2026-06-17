@@ -65,6 +65,25 @@ class SupportSession(Base):
     )
 
 
+class SupportNoAnswer(Base):
+    __tablename__ = "support_no_answer"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    record_no: Mapped[str] = mapped_column(String(64), unique=True, index=True, default="", nullable=False)
+    group_id: Mapped[int] = mapped_column(BigInteger, default=0, index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(String(128), default="no_knowledge", nullable=False)
+    notified_owner: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+
 @asynccontextmanager
 async def get_session() -> AsyncIterator[AsyncSession]:
     async with session_factory() as session:

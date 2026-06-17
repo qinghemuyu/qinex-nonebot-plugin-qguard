@@ -5,7 +5,7 @@ import pytest
 
 from nonebot_plugin_support_bot.commands._common import parse_support_command
 from nonebot_plugin_support_bot.config import Config, _parse_int_list
-from nonebot_plugin_support_bot.models import init_db
+from nonebot_plugin_support_bot.models import SupportNoAnswer, get_session, init_db
 from nonebot_plugin_support_bot.services.intent_service import IntentService
 from nonebot_plugin_support_bot.services.support_service import SupportBotService
 
@@ -88,3 +88,21 @@ async def test_support_bot_no_answer_in_current_scope() -> None:
 
     assert "当前群生效的知识库范围" in reply.text
     assert reply.state == "no_answer"
+    assert reply.no_answer_id.startswith("N")
+
+
+@pytest.mark.asyncio
+async def test_support_bot_records_no_answer() -> None:
+    await init_db()
+    group_id = 870000000 + (uuid4().int % 100000000)
+    service = SupportBotService(Config(), integration_service=FakeIntegration(references=[]))
+
+    reply = await service.handle_user_issue("QInEX 某个知识库没有的问题", group_id=group_id, user_id=123)
+
+    async with get_session() as session:
+        item = await session.get(SupportNoAnswer, int(reply.no_answer_id.removeprefix("N")))
+
+    assert item is not None
+    assert item.group_id == group_id
+    assert item.user_id == 123
+    assert "QInEX" in item.question

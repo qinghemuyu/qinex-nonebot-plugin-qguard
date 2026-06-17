@@ -3,6 +3,7 @@ import json
 from nonebot_plugin_support_bot.config import Config, load_config
 from nonebot_plugin_support_bot.models import get_session
 from nonebot_plugin_support_bot.repositories.group_config_repo import SupportGroupConfigRepo
+from nonebot_plugin_support_bot.repositories.no_answer_repo import SupportNoAnswerRepo
 from nonebot_plugin_support_bot.repositories.session_repo import SupportSessionRepo
 from nonebot_plugin_support_bot.services.integration_service import IntegrationService
 from nonebot_plugin_support_bot.services.intent_service import IntentService
@@ -83,9 +84,11 @@ class SupportBotService:
         if intent.reply_strategy == "reject":
             return SupportReply(text="我只回答 QInEX 映射软件相关问题。这个问题不在当前知识库范围内。", state="out_of_scope")
         if intent.reply_strategy == "safe_no_answer":
+            record_no = await self._record_no_answer(group_id, user_id, text, reason="privacy_or_license")
             return SupportReply(
                 text="当前知识库没有授权/账号处理流程，我不乱猜。也不要在群里发完整授权码、订单号、密钥或隐私截图。",
                 state="no_answer",
+                no_answer_id=record_no,
             )
         if intent.reply_strategy == "ask_followup":
             await self._save_session(group_id, user_id, "collecting_issue", intent, text)
@@ -122,12 +125,14 @@ class SupportBotService:
                 ai_used=bool(getattr(wiki_response, "ai_used", False)),
             )
         await self._save_session(group_id, user_id, "no_answer", intent, text)
+        record_no = await self._record_no_answer(group_id, user_id, text, reason="no_knowledge")
         return SupportReply(
             text=trim_reply(
                 "当前群生效的知识库范围里没有找到可靠答案。你可以换个关键词，或让管理员用 /知识 范围 查看本群启用的知识分类。",
                 self.config.support_bot_max_reply_length,
             ),
             state="no_answer",
+            no_answer_id=record_no,
         )
 
     async def _save_session(
@@ -155,4 +160,22 @@ class SupportBotService:
                 ),
                 ttl_seconds=self.config.support_bot_session_ttl_seconds,
             )
+            await session.commit()
+
+    async def _record_no_answer(self, group_id: int | None, user_id: int, text: str, *, reason: str) -> str:
+        async with get_session() as session:
+            item = await SupportNoAnswerRepo(session).create(
+                group_id=int(group_id or 0),
+                user_id=user_id,
+                question=text,
+                reason=reason,
+            )
+            await session.commit()
+            return item.record_no
+
+    async def mark_no_answer_notified(self, record_no: str) -> None:
+        if not record_no:
+            return
+        async with get_session() as session:
+            await SupportNoAnswerRepo(session).mark_notified(record_no)
             await session.commit()

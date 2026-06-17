@@ -1,6 +1,6 @@
 from nonebot import on_message
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent
-from nonebot.rule import Rule
+from nonebot.rule import Rule, to_me
 
 from nonebot_plugin_support_bot.config import load_config
 from nonebot_plugin_support_bot.services.support_service import SupportBotService
@@ -38,7 +38,13 @@ def _is_smart_candidate(event: MessageEvent) -> bool:
     return is_smart_candidate(event.get_plaintext())
 
 
+def _is_mention_question(event: MessageEvent) -> bool:
+    text = event.get_plaintext().strip()
+    return bool(text) and not text.startswith("/") and parse_support_command(text) is None
+
+
 support_command = on_message(rule=Rule(_is_support_command), priority=4, block=True)
+support_mention = on_message(rule=to_me() & Rule(_is_mention_question), priority=18, block=True)
 support_smart = on_message(rule=Rule(_is_smart_candidate), priority=20, block=False)
 
 
@@ -88,16 +94,30 @@ async def _(bot: Bot, event: MessageEvent) -> None:
         if not text:
             await finish_reply(support_command, bot, event, "用法：/求助 <问题描述>")
         reply = await service.handle_user_issue(text, group_id=group_id, user_id=event.user_id)
+        await _notify_owner_if_needed(bot, event, service, config, text, reply)
         await finish_reply(support_command, bot, event, reply.text)
+
+
+@support_mention.handle()
+async def _(bot: Bot, event: MessageEvent) -> None:
+    text = event.get_plaintext().strip()
+    config = load_config()
+    service = SupportBotService(config)
+    group_id = get_event_group_id(event)
+    reply = await service.handle_user_issue(text, group_id=group_id, user_id=event.user_id)
+    await _notify_owner_if_needed(bot, event, service, config, text, reply)
+    await finish_reply(support_mention, bot, event, reply.text)
 
 
 @support_smart.handle()
 async def _(bot: Bot, event: MessageEvent) -> None:
     group_id = get_event_group_id(event)
-    service = SupportBotService()
+    config = load_config()
+    service = SupportBotService(config)
     if not await service.should_smart_listen(group_id):
         return
     reply = await service.handle_user_issue(event.get_plaintext(), group_id=group_id, user_id=event.user_id)
+    await _notify_owner_if_needed(bot, event, service, config, event.get_plaintext(), reply)
     await finish_reply(support_smart, bot, event, reply.text)
 
 
@@ -108,3 +128,34 @@ def _parse_mode(text: str) -> str:
     if stripped in {"智能监听", "智能", "smart"}:
         return "smart"
     return ""
+
+
+async def _notify_owner_if_needed(
+    bot: Bot,
+    event: MessageEvent,
+    service: SupportBotService,
+    config,
+    question: str,
+    reply,
+) -> None:
+    record_no = getattr(reply, "no_answer_id", "")
+    if getattr(reply, "state", "") != "no_answer" or not record_no:
+        return
+    group_id = get_event_group_id(event)
+    message = (
+        "QInEX 智能问答未命中\n"
+        f"记录：{record_no}\n"
+        f"群：{group_id or '私聊'}\n"
+        f"用户：{event.user_id}\n"
+        f"问题：{question.strip()[:800]}\n"
+        f"机器人回复：{str(getattr(reply, 'text', '')).strip()[:800]}"
+    )
+    notified = False
+    for owner_id in config.support_bot_admins:
+        try:
+            await bot.send_private_msg(user_id=int(owner_id), message=message)
+            notified = True
+        except Exception:
+            continue
+    if notified:
+        await service.mark_no_answer_notified(record_no)

@@ -23,3 +23,4 @@ class SupportReply(BaseModel):
     state: str = "answering"
     references: list[str] = Field(default_factory=list)
     ai_used: bool = False
+    no_answer_id: str = ""

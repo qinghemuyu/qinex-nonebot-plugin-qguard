@@ -50,14 +50,15 @@
 
 - 新增 `nonebot_plugin_support_bot` 插件骨架。
 - 支持 `/客服 帮助`、`/客服 状态`、`/客服 开启/关闭`、`/客服 模式 命令触发/智能监听`。
-- 支持 `/求助`、`/售后`、`/不会用` 统一进入知识库问答。
+- 支持 `/求助`、`/售后`、`/不会用` 和 `@机器人 <自然语言问题>` 统一进入知识库问答。
 - 用户侧文案改为 QInEX 智能问答；内部代码名 `SupportBotService` 暂时保留兼容。
 - 已取消工单、人工、日志诊断入口；`/报错` 不再作为用户命令。
-- 新增 SQLite 表：`support_group_config`、`support_session`。
+- 新增 SQLite 表：`support_group_config`、`support_session`、`support_no_answer`。
 - 支持规则版 `SupportIntent` 意图识别：QInEX 相关判断、skill 路由、知识库问答、低质量问题追问、非 QInEX 拒答。
 - 支持保守智能监听，默认关闭，管理员开启后才监听非命令售后关键词。
 - QInEX AnswerBot 按 GroupWiki 的本群知识库范围和 skills 检索回答。
 - QInEX AnswerBot 群内回复标记为聊天消息，默认不会被 QGuard 自动撤回。
+- 知识库答不了时会记录 `support_no_answer`，并私聊通知 `SUPPORT_BOT_ADMINS` 中的主人。
 - 新增本地插件加载顺序回归测试，覆盖 AI Core 在后加载时的依赖解析问题。
 - 新增 SupportBot 单元测试。
 
