@@ -10,18 +10,26 @@ from nonebot_plugin_group_wiki.services.skill_registry import (
 )
 from nonebot_plugin_group_wiki.utils.rerank import SearchHit, score_article
 
+_QUERY_EXPANSIONS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("上位机", "pc端", "pc 端", "电脑端", "电脑程序", "pc客户端"), "QInEX 映射软件 PC端 电脑端"),
+    (("一卡一卡", "卡一卡", "卡卡", "一顿一顿", "忽快忽慢"), "卡顿 掉帧 延迟 回报率 异步 CPU 出帧"),
+    (("掉帧", "丢帧"), "卡顿 延迟 回报率 CPU 出帧"),
+    (("最新版", "新版", "最新版本"), "版本 更新"),
+)
+
 
 class WikiSearchService:
     async def search(self, query: str, *, group_id: int | None = None, limit: int = 5) -> list[SearchHit]:
         if not query.strip():
             return []
+        expanded_query = expand_search_query(query)
         async with get_session() as session:
             article_repo = WikiArticleRepo(session)
             index_repo = WikiSearchIndexRepo(session)
             articles = await article_repo.list_published(group_id=group_id)
             allowed_categories = await WikiScopeConfigRepo(session).allowed_categories(group_id)
             hits: list[SearchHit] = []
-            query_skill = find_skill(match_skill_id(query))
+            query_skill = find_skill(match_skill_id(expanded_query))
             for article in articles:
                 chunks = await index_repo.chunks_by_article(article.id)
                 if allowed_categories:
@@ -34,7 +42,7 @@ class WikiSearchService:
                             continue
                     elif article.category not in allowed:
                         continue
-                hit = score_article(query, article, chunks)
+                hit = score_article(expanded_query, article, chunks)
                 if hit is not None:
                     hits.append(hit)
             hits.sort(key=lambda item: item.score, reverse=True)
@@ -42,3 +50,14 @@ class WikiSearchService:
                 await article_repo.increment_hit(hit.article)
             await session.commit()
             return hits[:limit]
+
+
+def expand_search_query(query: str) -> str:
+    normalized = query.strip().lower()
+    additions: list[str] = []
+    for triggers, expansion in _QUERY_EXPANSIONS:
+        if any(trigger.lower() in normalized for trigger in triggers):
+            additions.append(expansion)
+    if not additions:
+        return query
+    return f"{query}\n{' '.join(additions)}"

@@ -95,7 +95,7 @@ class IntentService:
             return "mapping_not_working"
         if any(word in text for word in ("配置", "怎么", "如何", "教程", "不会")):
             return "config_problem"
-        if any(word in text for word in ("卡顿", "延迟", "掉帧", "慢")):
+        if any(word in text for word in ("卡顿", "延迟", "掉帧", "丢帧", "一卡一卡", "卡卡", "一顿一顿", "忽快忽慢", "慢")):
             return "performance_problem"
         if any(word in text for word in ("打不开", "启动", "闪退", "崩溃", "crash")):
             return "launch_failed"

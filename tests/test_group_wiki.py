@@ -11,7 +11,7 @@ from nonebot_plugin_group_wiki.models import init_db
 from nonebot_plugin_group_wiki.services.article_service import GroupWikiService
 from nonebot_plugin_group_wiki.services.import_service import ImportService
 from nonebot_plugin_group_wiki.services.rag_service import RAGService, _build_knowledge_context, _clean_chat_answer
-from nonebot_plugin_group_wiki.services.search_service import WikiSearchService
+from nonebot_plugin_group_wiki.services.search_service import WikiSearchService, expand_search_query
 from nonebot_plugin_group_wiki.services.skill_registry import (
     FAQ_CATEGORY,
     categories_for_skill_ids,
@@ -75,6 +75,7 @@ def test_qinex_skill_registry() -> None:
     assert rejected == []
     assert match_skill_id("P4 单机版怎么用手机配置") == "qinex_p4"
     assert match_skill_id("S3板子要怎么激活") == "qinex_activation"
+    assert match_skill_id("最新版上位机有时候一卡一卡的") == "qinex_troubleshooting"
     assert faq_chunk_allowed_for_categories("## 五、连点 / 压枪\n压枪怎么开", ["06_连点与压枪"])
     assert not faq_chunk_allowed_for_categories("## 七、投屏\n投屏怎么开", ["06_连点与压枪"])
 
@@ -107,6 +108,15 @@ def test_build_knowledge_context_keeps_matched_chunk() -> None:
     assert "片段1 [10_排障与卡顿速查#滑屏卡顿]" in context
     assert "回报率过高" in context
     assert "检查控制模式" in context
+
+
+def test_expand_search_query_for_pc_client_jank() -> None:
+    expanded = expand_search_query("最新版上位机有那种掉帧的感觉，有时候一卡一卡的")
+
+    assert "映射软件" in expanded
+    assert "PC端" in expanded
+    assert "卡顿" in expanded
+    assert "回报率" in expanded
 
 
 @pytest.mark.asyncio

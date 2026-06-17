@@ -59,6 +59,7 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     license_intent = await service.classify("授权激活失败怎么处理")
     s3_activation = await service.classify("S3板子要怎么激活")
     blocked_license = await service.classify("S3板子授权码怎么破解")
+    pc_jank = await service.classify("最新版上位机有那种掉帧的感觉，有时候一卡一卡的")
     out_scope = await service.classify("Python 怎么安装依赖")
 
     assert log_intent.reply_strategy == "reject"
@@ -67,6 +68,8 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     assert s3_activation.reply_strategy == "answer"
     assert s3_activation.issue_type == "activation_usage"
     assert blocked_license.reply_strategy == "safe_no_answer"
+    assert pc_jank.reply_strategy == "answer"
+    assert pc_jank.issue_type == "performance_problem"
     assert out_scope.reply_strategy == "reject"
 
 
@@ -95,6 +98,21 @@ async def test_support_bot_allows_safe_s3_activation_question() -> None:
     assert reply.state == "answered"
     assert reply.references == ["11_激活与安全说明#S3 硬件板子怎么激活"]
     assert integration.questions == ["S3板子要怎么激活"]
+
+
+@pytest.mark.asyncio
+async def test_support_bot_allows_pc_client_jank_question() -> None:
+    await init_db()
+    group_id = 850600000 + (uuid4().int % 100000000)
+    integration = FakeIntegration(references=["10_排障与卡顿速查#卡顿分三段"])
+    service = SupportBotService(Config(), integration_service=integration)
+
+    question = "最新版上位机有那种掉帧的感觉，有时候一卡一卡的"
+    reply = await service.handle_user_issue(question, group_id=group_id, user_id=1)
+
+    assert reply.state == "answered"
+    assert reply.references == ["10_排障与卡顿速查#卡顿分三段"]
+    assert integration.questions == [question]
 
 
 @pytest.mark.asyncio
