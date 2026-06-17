@@ -27,6 +27,7 @@ def test_help_text_mentions_rule_commands() -> None:
     assert "/管 名片日志 @用户" in HELP_TEXT
     assert "/管 处罚日志 @用户" in HELP_TEXT
     assert "/管 最近消息 @用户" in HELP_TEXT
+    assert "/管 消息 消息ID" in HELP_TEXT
     assert "/管 新人保护 开" in HELP_TEXT
     assert "/管 新人保护 时长 24h" in HELP_TEXT
     assert "/管 新人禁链接 开|关" in HELP_TEXT

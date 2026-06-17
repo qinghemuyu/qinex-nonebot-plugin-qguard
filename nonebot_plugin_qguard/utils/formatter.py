@@ -55,3 +55,20 @@ def format_cached_messages(messages: list[MessageCache]) -> str:
             text = "[非文本消息]"
         lines.append(f"#{item.message_id} {item.user_id}: {text}")
     return "\n".join(lines)
+
+
+def format_cached_message_detail(message: MessageCache | None) -> str:
+    if message is None:
+        return "没有找到这条缓存消息，可能已过期或不属于本群。"
+    text = (message.plain_text or "").strip()
+    if not text:
+        text = "[非文本消息]"
+    return (
+        "消息缓存\n"
+        f"消息ID：{message.message_id}\n"
+        f"群号：{message.group_id}\n"
+        f"用户：{message.user_id}\n"
+        f"时间：{message.created_at}\n"
+        f"图片：{message.image_count}，@：{message.at_count}，链接：{message.link_count}\n"
+        f"内容：{text}"
+    )

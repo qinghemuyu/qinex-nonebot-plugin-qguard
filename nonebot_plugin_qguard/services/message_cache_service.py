@@ -50,3 +50,7 @@ class MessageCacheService:
     async def latest_by_user(self, group_id: int, user_id: int, limit: int = 10) -> list[MessageCache]:
         async with get_session() as session:
             return await MessageCacheRepo(session).latest_by_user(group_id, user_id, limit=limit)
+
+    async def get_in_group(self, group_id: int, message_id: int) -> MessageCache | None:
+        async with get_session() as session:
+            return await MessageCacheRepo(session).get_in_group(group_id, message_id)

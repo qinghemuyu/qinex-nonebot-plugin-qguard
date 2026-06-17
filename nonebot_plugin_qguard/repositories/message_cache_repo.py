@@ -31,6 +31,12 @@ class MessageCacheRepo:
         result = await self.session.execute(delete(MessageCache).where(MessageCache.expires_at < datetime.utcnow()))
         return result.rowcount or 0
 
+    async def get_in_group(self, group_id: int, message_id: int) -> MessageCache | None:
+        result = await self.session.scalars(
+            select(MessageCache).where(MessageCache.group_id == group_id, MessageCache.message_id == message_id)
+        )
+        return result.one_or_none()
+
     async def latest_by_user(self, group_id: int, user_id: int, limit: int = 10) -> list[MessageCache]:
         result = await self.session.scalars(
             select(MessageCache)
