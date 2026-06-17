@@ -65,7 +65,7 @@ class SupportBotService:
             f"插件启用：{'是' if enabled else '否'}\n"
             f"触发模式：{mode}\n"
             f"智能监听：{'开' if smart_listen else '关'}\n"
-            f"连续对话：{self.config.support_bot_conversation_ttl_seconds} 秒\n"
+            "连续对话：按提问人隔离\n"
             f"软件范围：{self.config.support_bot_software_name}\n"
             "知识范围：由 /知识 范围 控制\n"
             "技能列表：用 /知识 技能 查看"
@@ -152,10 +152,19 @@ class SupportBotService:
         stripped = text.strip()
         if group_id is None or not stripped or stripped.startswith("/"):
             return False
-        if not await self.is_group_enabled(group_id):
+        if not _could_be_continuation_candidate(stripped):
+            return False
+        if not await self._is_group_enabled_without_create(group_id):
             return False
         previous_context = await self._recent_context(group_id, user_id)
         return previous_context is not None and _looks_like_continuation(stripped, previous_context)
+
+    async def _is_group_enabled_without_create(self, group_id: int | None) -> bool:
+        if group_id is None:
+            return self.config.support_bot_enabled
+        async with get_session() as session:
+            item = await SupportGroupConfigRepo(session, self.config).get(group_id)
+            return self.config.support_bot_enabled if item is None else item.enabled
 
     async def _ask_wiki(
         self,
@@ -315,7 +324,6 @@ def _looks_like_continuation(text: str, previous_context: dict | None = None) ->
         "管理员",
         "开了",
         "没开",
-        "有",
         "没有",
         "电脑",
         "手机",
@@ -323,9 +331,40 @@ def _looks_like_continuation(text: str, previous_context: dict | None = None) ->
         "滑屏",
         "压枪",
         "连点",
-        "卡",
     )
     return len(stripped) <= 30 and any(marker in normalized for marker in short_fact_markers)
+
+
+def _could_be_continuation_candidate(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped or any(marker in stripped for marker in RESET_MARKERS):
+        return False
+    normalized = stripped.lower()
+    if stripped in THANKS_MARKERS or normalized in {marker.lower() for marker in THANKS_MARKERS}:
+        return False
+    if any(marker in stripped for marker in CONTINUATION_MARKERS):
+        return True
+    quick_markers = (
+        "s3",
+        "p4",
+        "adb",
+        "免硬件",
+        "硬件",
+        "数据线",
+        "管理员",
+        "开了",
+        "没开",
+        "没有",
+        "电脑",
+        "手机",
+        "投屏",
+        "滑屏",
+        "压枪",
+        "连点",
+        "截图",
+        "版本",
+    )
+    return len(stripped) <= 30 and any(marker in normalized for marker in quick_markers)
 
 
 def _build_contextual_question(previous_context: dict, user_text: str) -> str:

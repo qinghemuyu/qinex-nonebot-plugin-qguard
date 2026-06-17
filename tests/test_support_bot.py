@@ -2,10 +2,11 @@ from dataclasses import dataclass
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import select
 
 from nonebot_plugin_support_bot.commands._common import parse_support_command
 from nonebot_plugin_support_bot.config import Config, _parse_int_list
-from nonebot_plugin_support_bot.models import SupportNoAnswer, get_session, init_db
+from nonebot_plugin_support_bot.models import SupportGroupConfig, SupportNoAnswer, get_session, init_db
 from nonebot_plugin_support_bot.services.intent_service import IntentService
 from nonebot_plugin_support_bot.services.support_service import SupportBotService
 
@@ -79,8 +80,12 @@ async def test_support_bot_continues_recent_user_context() -> None:
     assert first.state == "answered"
 
     assert await service.should_handle_continuation("还是不行", group_id=group_id, user_id=1)
+    assert not await service.should_handle_continuation("还是不行", group_id=group_id, user_id=2)
     assert not await service.should_handle_continuation("谢谢", group_id=group_id, user_id=1)
     assert not await service.should_handle_continuation("哈哈哈", group_id=group_id, user_id=1)
+    assert not await service.should_handle_continuation("有", group_id=group_id, user_id=1)
+    assert not await service.should_handle_continuation("卡", group_id=group_id, user_id=1)
+    assert await service.should_handle_continuation("还卡", group_id=group_id, user_id=1)
 
     second = await service.handle_user_issue("还是不行", group_id=group_id, user_id=1)
 
@@ -89,6 +94,23 @@ async def test_support_bot_continues_recent_user_context() -> None:
     assert "上一轮问题" in integration.questions[-1]
     assert "滑屏卡顿" in integration.questions[-1]
     assert "还是不行" in integration.questions[-1]
+
+
+@pytest.mark.asyncio
+async def test_support_bot_continuation_rule_does_not_create_group_config() -> None:
+    await init_db()
+    group_id = 852000000 + (uuid4().int % 100000000)
+    service = SupportBotService(Config(), integration_service=FakeIntegration())
+
+    assert not await service.should_handle_continuation("还是不行", group_id=group_id, user_id=1)
+
+    async with get_session() as session:
+        result = await session.scalars(
+            select(SupportGroupConfig).where(SupportGroupConfig.group_id == group_id)
+        )
+        item = result.one_or_none()
+
+    assert item is None
 
 
 @pytest.mark.asyncio

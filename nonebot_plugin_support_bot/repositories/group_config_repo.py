@@ -12,11 +12,14 @@ class SupportGroupConfigRepo:
         self.session = session
         self.config = config or Config()
 
-    async def get_or_create(self, group_id: int) -> SupportGroupConfig:
+    async def get(self, group_id: int) -> SupportGroupConfig | None:
         result = await self.session.scalars(
             select(SupportGroupConfig).where(SupportGroupConfig.group_id == group_id)
         )
-        item = result.one_or_none()
+        return result.one_or_none()
+
+    async def get_or_create(self, group_id: int) -> SupportGroupConfig:
+        item = await self.get(group_id)
         if item is not None:
             return item
         item = SupportGroupConfig(
