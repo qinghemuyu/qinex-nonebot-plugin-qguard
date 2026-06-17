@@ -32,6 +32,22 @@ QGUARD_SUPER_ADMINS=[1348984838]
 QGUARD_COMMAND_PREFIX=/管
 ```
 
+## OneBot v11 连接方式
+
+QGuard 第一阶段只支持 OneBot v11。NoneBot 项目需要启用 `nonebot-adapter-onebot`，并让协议端通过反向 WebSocket 连接到 NoneBot，例如：
+
+```text
+ws://127.0.0.1:8080/onebot/v11/ws
+```
+
+插件加载推荐使用本地插件目录：把 `nonebot_plugin_qguard` 目录复制到 NoneBot 项目已经配置的 `plugin_dirs` 下，例如：
+
+```text
+src/qinex/plugins/nonebot_plugin_qguard
+```
+
+不要把 `plugin_dirs` 里的插件目录软链接到项目外部路径，NoneBot 在解析本地插件模块名时可能会因为真实路径不在项目目录内而启动失败。
+
 ## 命令列表
 
 ```text
@@ -174,6 +190,31 @@ QGUARD_SUPER_ADMINS > 插件角色/OneBot 群角色中更高者 > 普通成员
 - `whitelist`
 - `message_cache`
 - `audit_log`
+
+## 常见问题
+
+### 发一条命令收到两次回复
+
+通常是插件被加载了两次，例如同时存在本地插件目录和已安装的包，或者两个 `plugin_dirs` 都能扫描到 QGuard。保留一种加载方式即可。
+
+### `Module nonebot_plugin_qguard is not loaded as a plugin`
+
+一般是先用 Python 手动 `import nonebot_plugin_qguard`，又让 NoneBot 作为插件加载。测试导入和正式运行分开做，正式运行时只让 NoneBot 通过 `plugin_dirs` 或插件配置加载。
+
+### 头衔设置失败
+
+QQ 群专属头衔通常只有群主能设置。机器人不是群主时，QGuard 会返回跳过或失败原因，这是平台权限限制，不是插件命令失效。
+
+### `Fontconfig error`
+
+这通常来自 `nonebot-plugin-htmlkit` 的字体配置，不是 QGuard 的错误。QGuard 能正常加载和响应时可以先忽略，或者在服务器上补齐 fontconfig 配置。
+
+## 开发计划
+
+- 已完成：设计文档 v0.1 到 v0.5 的核心命令、名片锁、自动审核、新人保护、入群审核、群设置保护、自动巡检和审计能力。
+- 继续打磨：根据真实群样本调整广告词、刷屏阈值和误伤策略。
+- 继续补测：为更多命令补直接命令层测试，确保 README、帮助文本和实际命令长期一致。
+- 继续适配：按服务器实测日志修复不同 OneBot 实现的字段差异和权限边界。
 
 ## 进度
 

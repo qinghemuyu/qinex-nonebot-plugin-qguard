@@ -1,4 +1,16 @@
+from pathlib import Path
+
 from nonebot_plugin_qguard.commands.root import HELP_TEXT
+
+
+def test_help_text_lists_readme_commands() -> None:
+    readme = Path("README.md").read_text(encoding="utf-8")
+    readme_commands = [line.strip() for line in readme.splitlines() if line.startswith("/管 ")]
+    help_lines = set(HELP_TEXT.splitlines())
+
+    missing = [command for command in readme_commands if command not in help_lines]
+
+    assert missing == []
 
 
 def test_help_text_mentions_rule_commands() -> None:
