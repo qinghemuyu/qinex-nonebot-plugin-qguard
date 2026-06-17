@@ -8,6 +8,8 @@
 
 ## 已完成
 
+### AI Core
+
 - 新增 `nonebot_plugin_ai_core` 插件骨架。
 - 支持 OpenAI-compatible Chat Completions 客户端，DeepSeek/OpenAI/通义兼容网关/Ollama OpenAI-compatible server 都走同一接口。
 - 新增 `AICoreService.chat/classify/extract_json/summarize`。
@@ -20,8 +22,18 @@
 - AI Core 群内回复标记为聊天消息；是否撤回由 QGuard 的自动撤回分类配置决定，默认保留。
 - 新增 AI Core 单元测试。
 
+### LogDoctor
+
+- 新增 `nonebot_plugin_log_doctor` 插件骨架。
+- 支持 `/诊断 <日志文本>`、回复消息 `/诊断`、`/诊断 最近`、`/诊断 规则列表`。
+- 支持 `/报错`、`/看日志`、`/logdoctor` 入口。
+- 内置规则覆盖 SQLite 数据库打不开、ModuleNotFoundError、PermissionError、FileNotFoundError、JSON/YAML/TOML 配置错误、OneBot WebSocket 连接异常、NoneBot 插件加载失败。
+- 规则不命中时调用 AI Core 的结构化 JSON 诊断。
+- 诊断结果写入 `diagnosis_record`，预留知识库和工单集成接口。
+- 新增 LogDoctor 单元测试。
+
 ## 下一步
 
-- 开发 `nonebot_plugin_log_doctor`：`/诊断`、内置规则、AI 兜底、诊断记录。
-- 然后开发 `nonebot_plugin_group_wiki`：`/知识 添加`、`/知识 搜索`、`/问`。
+- 继续完善 LogDoctor：上传文件诊断、手动添加规则、生成知识库候选、转工单。
+- 开发 `nonebot_plugin_group_wiki`：`/知识 添加`、`/知识 搜索`、`/问`。
 - 最后开发 `nonebot_plugin_support_bot`：`/求助`、`/报错`、`/人工`、轻量工单。

@@ -15,6 +15,7 @@ QGuard 是一个基于 NoneBot 2 + OneBot v11 的 QQ 群安全管理插件，面
 - 群管设置：全体禁言开关、机器人回复按指令/聊天分类自动撤回。
 - 消息缓存：缓存群消息，支持最近消息、单条消息查询和误判复盘。
 - 审计日志：人工操作、自动操作、失败、跳过都会写入 `audit_log`。
+- AI 售后中台：AI Core 模型底座、LogDoctor 日志诊断。
 
 ## 安装
 
@@ -30,6 +31,10 @@ pip install -e .
 QGUARD_DB_URL=sqlite+aiosqlite:///./data/qguard.db
 QGUARD_SUPER_ADMINS=[1348984838]
 QGUARD_COMMAND_PREFIX=/管
+
+AI_CORE_API_KEY=sk-change-me
+AI_CORE_MODEL=deepseek-chat
+LOG_DOCTOR_DB_URL=sqlite+aiosqlite:///./data/log_doctor.db
 ```
 
 ## OneBot v11 连接方式
@@ -142,6 +147,14 @@ src/qinex/plugins/nonebot_plugin_qguard
 /管 自动巡检 开
 /管 自动巡检 关
 /管 自动巡检 间隔 5s
+
+/ai状态
+/ai测试
+
+/诊断 sqlite3.OperationalError: unable to open database file
+/诊断 最近
+/诊断 规则列表
+/报错 ModuleNotFoundError: No module named 'xxx'
 ```
 
 ## 权限说明
@@ -162,6 +175,18 @@ QGUARD_SUPER_ADMINS > 插件角色/OneBot 群角色中更高者 > 普通成员
 - 聊天消息：AI Core、后续客服/问答插件产生的售后聊天回复。
 
 默认只撤回指令消息，聊天消息会保留。可以用 `/管 自动撤回 分类 指令|聊天|全部|关闭` 调整撤回范围，用 `/管 自动撤回 90s` 调整撤回时间。
+
+## LogDoctor 说明
+
+LogDoctor 用于诊断日志、Traceback、依赖缺失、配置错误、OneBot 连接异常等问题。它会优先使用内置规则，规则没命中时再调用 AI Core，结果会写入 `diagnosis_record`。
+
+常用入口：
+
+- `/诊断 <日志文本>`
+- 回复一条日志消息后发送 `/诊断`
+- `/诊断 最近`
+- `/诊断 规则列表`
+- `/报错 <日志文本>`
 
 ## 群名片锁说明
 
