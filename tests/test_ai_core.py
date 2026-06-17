@@ -5,6 +5,7 @@ import pytest
 from pydantic import BaseModel
 
 from nonebot_plugin_ai_core.client.base import AIClientResponse
+from nonebot_plugin_ai_core.commands._common import get_event_group_id, send_group_reply
 from nonebot_plugin_ai_core.commands.test_call import parse_ai_test_prompt
 from nonebot_plugin_ai_core.config import Config
 from nonebot_plugin_ai_core.exceptions import AIRateLimitExceeded
@@ -29,6 +30,20 @@ class DemoResult(BaseModel):
     score: int
 
 
+@dataclass
+class FakeBot:
+    sent: list[tuple[int, str]]
+
+    async def send_group_msg(self, *, group_id: int, message: str) -> dict:
+        self.sent.append((group_id, message))
+        return {"message_id": 123}
+
+
+@dataclass
+class FakeEvent:
+    group_id: int | None = None
+
+
 def test_mask_text_hides_sensitive_content() -> None:
     text = "sk-1234567890abcdef token=abcdef123456 user@qq.com 13800138000 1348984838"
     masked = mask_text(text)
@@ -51,6 +66,21 @@ def test_parse_ai_test_prompt() -> None:
     assert parse_ai_test_prompt("/ai测试") == "请回复：AI Core 已连通。"
     assert parse_ai_test_prompt("/ai测试 你好") == "你好"
     assert parse_ai_test_prompt("/ai状态") is None
+
+
+def test_get_event_group_id() -> None:
+    assert get_event_group_id(FakeEvent(123)) == 123
+    assert get_event_group_id(FakeEvent(None)) is None
+
+
+@pytest.mark.asyncio
+async def test_send_group_reply_sends_plain_group_message() -> None:
+    bot = FakeBot(sent=[])
+
+    result = await send_group_reply(bot, FakeEvent(456), "hello")
+
+    assert result == {"message_id": 123}
+    assert bot.sent == [(456, "hello")]
 
 
 @pytest.mark.asyncio
