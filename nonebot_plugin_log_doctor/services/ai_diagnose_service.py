@@ -1,14 +1,33 @@
-from nonebot_plugin_ai_core.service import AICoreService, get_ai_core
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from nonebot_plugin_ai_core.service import AICoreService
 
 from nonebot_plugin_log_doctor.services.schemas import DiagnosisResult
 
 
+def _get_ai_core() -> AICoreService:
+    try:
+        from nonebot_plugin_ai_core.service import get_ai_core
+    except ModuleNotFoundError as exc:
+        if exc.name and not exc.name.startswith("nonebot_plugin_ai_core"):
+            raise
+        from nonebot import require
+
+        require("nonebot_plugin_ai_core")
+        from nonebot_plugin_ai_core.service import get_ai_core
+    return get_ai_core()
+
+
 class AIDiagnoseService:
     def __init__(self, ai_core: AICoreService | None = None) -> None:
-        self.ai_core = ai_core or get_ai_core()
+        self.ai_core = ai_core
 
     async def diagnose(self, text: str, *, group_id: int | None = None, user_id: int | None = None) -> DiagnosisResult:
-        result = await self.ai_core.extract_json(
+        ai_core = self.ai_core or _get_ai_core()
+        result = await ai_core.extract_json(
             [
                 {
                     "role": "system",

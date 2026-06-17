@@ -1,9 +1,27 @@
-from nonebot_plugin_ai_core.service import AICoreService, get_ai_core
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from nonebot_plugin_ai_core.service import AICoreService
 
 from nonebot_plugin_group_wiki.config import Config, load_config
 from nonebot_plugin_group_wiki.services.schemas import AskResponse
 from nonebot_plugin_group_wiki.services.search_service import WikiSearchService
 from nonebot_plugin_group_wiki.utils.text_splitter import split_text
+
+
+def _get_ai_core() -> AICoreService:
+    try:
+        from nonebot_plugin_ai_core.service import get_ai_core
+    except ModuleNotFoundError as exc:
+        if exc.name and not exc.name.startswith("nonebot_plugin_ai_core"):
+            raise
+        from nonebot import require
+
+        require("nonebot_plugin_ai_core")
+        from nonebot_plugin_ai_core.service import get_ai_core
+    return get_ai_core()
 
 
 class RAGService:
@@ -15,7 +33,7 @@ class RAGService:
     ) -> None:
         self.config = config or load_config()
         self.search_service = search_service or WikiSearchService()
-        self.ai_core = ai_core or get_ai_core()
+        self.ai_core = ai_core
 
     async def ask(self, question: str, *, group_id: int | None = None, user_id: int | None = None) -> AskResponse:
         hits = await self.search_service.search(question, group_id=group_id, limit=4)
@@ -34,7 +52,8 @@ class RAGService:
             f"[{hit.article.article_no}] {hit.article.title}\n{hit.snippet or hit.article.summary}" for hit in hits
         )
         try:
-            answer = await self.ai_core.chat(
+            ai_core = self.ai_core or _get_ai_core()
+            answer = await ai_core.chat(
                 [
                     {
                         "role": "system",

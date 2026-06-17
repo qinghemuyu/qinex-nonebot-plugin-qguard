@@ -4,9 +4,14 @@ from nonebot import get_driver
 
 sys.modules.setdefault("nonebot_plugin_ai_core", sys.modules[__name__])
 
+from . import service as _service_module
 from .metadata import __plugin_meta__ as __plugin_meta__
 from .models import init_db
-from .service import AICoreService, get_ai_core
+
+sys.modules.setdefault("nonebot_plugin_ai_core.service", _service_module)
+
+AICoreService = _service_module.AICoreService
+get_ai_core = _service_module.get_ai_core
 
 try:
     driver = get_driver()
