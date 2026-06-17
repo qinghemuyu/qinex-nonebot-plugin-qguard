@@ -60,7 +60,12 @@ class WikiArticleRepo:
                 )
             )
             return article, "created"
-        changed = existing.title != title or existing.content_md != content_md or existing.summary != summary
+        changed = (
+            existing.title != title
+            or existing.content_md != content_md
+            or existing.summary != summary
+            or existing.category != category
+        )
         if not changed:
             return existing, "skipped"
         existing.title = title

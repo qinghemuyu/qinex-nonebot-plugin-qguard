@@ -110,6 +110,31 @@ async def test_group_wiki_local_import(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_group_wiki_reimport_updates_category_when_filename_policy_changes(tmp_path) -> None:
+    await init_db()
+    service = GroupWikiService(Config(group_wiki_enable_ai=False, group_wiki_default_scope="global"))
+    await service.add_article(
+        title="连点与压枪",
+        content="# 连点与压枪\n\n压枪说明。",
+        group_id=None,
+        author_id=1,
+        category="连点与压枪",
+        source_type="import",
+        source_ref_id="06_连点与压枪.md",
+    )
+    doc = tmp_path / "06_连点与压枪.md"
+    doc.write_text("# 连点与压枪\n\n压枪说明。", encoding="utf-8")
+
+    created, updated, skipped = await ImportService(Config(group_wiki_import_dir=str(tmp_path))).import_local_markdown(
+        author_id=1
+    )
+    hits = await WikiSearchService().search("压枪")
+
+    assert (created, updated, skipped) == (0, 1, 0)
+    assert any(hit.article.category == "06_连点与压枪" for hit in hits)
+
+
+@pytest.mark.asyncio
 async def test_group_wiki_group_scope_filters_categories() -> None:
     await init_db()
     group_id = 845000000 + (uuid4().int % 100000000)
