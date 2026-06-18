@@ -14,7 +14,7 @@ from nonebot_plugin_group_wiki.utils.formatter import (
     format_search_results,
 )
 
-from ._common import finish_reply, get_event_group_id, is_admin_event, parse_wiki_command
+from ._common import check_qguard_command_permission, finish_reply, get_event_group_id, is_admin_event, parse_wiki_command
 
 wiki_matcher = on_message(priority=5, block=False)
 
@@ -45,6 +45,9 @@ async def _(bot: Bot, event: MessageEvent) -> None:
     group_id = get_event_group_id(event)
 
     if command in {"/问", "/FAQ", "/wiki", "/教程"}:
+        denied = await _ensure_permission(bot, event, "/问" if command in {"/wiki", "/教程"} else command)
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         if not args_text:
             await finish_reply(wiki_matcher, bot, event, "用法：/问 问题")
         response = await RAGService().ask(args_text, group_id=group_id, user_id=event.user_id)
@@ -52,13 +55,34 @@ async def _(bot: Bot, event: MessageEvent) -> None:
 
     action = actions[0] if actions else "帮助"
     if action in {"帮助", "help"}:
+        denied = await _ensure_permission(bot, event, "/知识")
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         await finish_reply(wiki_matcher, bot, event, HELP_TEXT)
 
     if action == "导入本地":
+        denied = await _ensure_permission(
+            bot,
+            event,
+            "/知识 导入本地",
+            fallback_role=3,
+            fallback_to_onebot_admin=True,
+        )
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         created, updated, skipped = await ImportService().import_local_markdown(author_id=event.user_id)
         await finish_reply(wiki_matcher, bot, event, format_import_result(created, updated, skipped))
 
     if action == "添加":
+        denied = await _ensure_permission(
+            bot,
+            event,
+            "/知识 添加",
+            fallback_role=3,
+            fallback_to_onebot_admin=True,
+        )
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         title, content = parse_title_content(args_text)
         if not title or not content:
             await finish_reply(wiki_matcher, bot, event, "用法：/知识 添加 标题 内容")
@@ -71,12 +95,18 @@ async def _(bot: Bot, event: MessageEvent) -> None:
         await finish_reply(wiki_matcher, bot, event, f"知识已添加：[{article.article_no}] {article.title}")
 
     if action == "搜索":
+        denied = await _ensure_permission(bot, event, "/知识 搜索")
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         if not args_text:
             await finish_reply(wiki_matcher, bot, event, "用法：/知识 搜索 关键词")
         hits = await WikiSearchService().search(args_text, group_id=group_id, limit=5)
         await finish_reply(wiki_matcher, bot, event, format_search_results(hits))
 
     if action == "分类":
+        denied = await _ensure_permission(bot, event, "/知识 分类")
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         categories = await WikiScopeService().list_categories(group_id=group_id)
         if not categories:
             await finish_reply(wiki_matcher, bot, event, "知识库还没有分类。先执行 /知识 导入本地。")
@@ -86,15 +116,33 @@ async def _(bot: Bot, event: MessageEvent) -> None:
         await _handle_scope(bot, event, group_id, args_text)
 
     if action == "技能":
+        if args_text.strip():
+            denied = await _ensure_permission(
+                bot,
+                event,
+                "/知识 范围 技能",
+                fallback_role=3,
+                fallback_to_onebot_admin=True,
+            )
+        else:
+            denied = await _ensure_permission(bot, event, "/知识 技能")
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         await _handle_skills(bot, event, group_id, args_text)
 
     if action == "问":
+        denied = await _ensure_permission(bot, event, "/知识 问")
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         if not args_text:
             await finish_reply(wiki_matcher, bot, event, "用法：/知识 问 问题")
         response = await RAGService().ask(args_text, group_id=group_id, user_id=event.user_id)
         await finish_reply(wiki_matcher, bot, event, format_ask_response(response))
 
     if action == "查看":
+        denied = await _ensure_permission(bot, event, "/知识 查看")
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         article_no = args_text.strip().upper()
         if not article_no:
             await finish_reply(wiki_matcher, bot, event, "用法：/知识 查看 K0001")
@@ -104,6 +152,9 @@ async def _(bot: Bot, event: MessageEvent) -> None:
         await finish_reply(wiki_matcher, bot, event, format_article(article))
 
     if action in {"有用", "没用"}:
+        denied = await _ensure_permission(bot, event, f"/知识 {action}")
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         article_no = args_text.strip().upper()
         if not article_no:
             await finish_reply(wiki_matcher, bot, event, f"用法：/知识 {action} K0001")
@@ -130,6 +181,9 @@ async def _handle_scope(bot: Bot, event: MessageEvent, group_id: int | None, arg
     service = WikiScopeService()
     args = args_text.strip()
     if not args:
+        denied = await _ensure_permission(bot, event, "/知识 范围")
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         allowed, all_categories = await service.get_group_scope(group_id)
         lines = ["本群知识库回答范围："]
         if allowed:
@@ -143,14 +197,29 @@ async def _handle_scope(bot: Bot, event: MessageEvent, group_id: int | None, arg
             lines.extend(f"- {item}" for item in all_categories)
         await finish_reply(wiki_matcher, bot, event, "\n".join(lines))
 
-    if not is_admin_event(event):
-        await finish_reply(wiki_matcher, bot, event, "只有群管理员可以修改知识库回答范围。")
-
     if args in {"全部", "全量", "all"}:
+        denied = await _ensure_permission(
+            bot,
+            event,
+            "/知识 范围 全部",
+            fallback_role=3,
+            fallback_to_onebot_admin=True,
+        )
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         await service.set_all(group_id, updated_by=event.user_id)
         await finish_reply(wiki_matcher, bot, event, "本群知识库回答范围已切换为：全部分类。")
 
     if args.startswith("分类 "):
+        denied = await _ensure_permission(
+            bot,
+            event,
+            "/知识 范围 分类",
+            fallback_role=3,
+            fallback_to_onebot_admin=True,
+        )
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         raw_categories = args.removeprefix("分类 ").strip()
         categories = [item.strip() for item in raw_categories.replace("，", ",").split(",") if item.strip()]
         if not categories:
@@ -163,6 +232,15 @@ async def _handle_scope(bot: Bot, event: MessageEvent, group_id: int | None, arg
         await finish_reply(wiki_matcher, bot, event, "\n".join(lines))
 
     if args.startswith("技能 "):
+        denied = await _ensure_permission(
+            bot,
+            event,
+            "/知识 范围 技能",
+            fallback_role=3,
+            fallback_to_onebot_admin=True,
+        )
+        if denied:
+            await finish_reply(wiki_matcher, bot, event, denied)
         raw_skills = args.removeprefix("技能 ").strip()
         skill_ids = [item.strip() for item in raw_skills.replace("，", ",").split(",") if item.strip()]
         if not skill_ids:
@@ -184,3 +262,24 @@ async def _handle_skills(bot: Bot, event: MessageEvent, group_id: int | None, ar
     allowed, _all_categories = await service.get_group_scope(group_id)
     lines = [describe_wiki_skills(), "", "本群当前范围：" + ("、".join(allowed) if allowed else "全部分类")]
     await finish_reply(wiki_matcher, bot, event, "\n".join(lines))
+
+
+async def _ensure_permission(
+    bot: Bot,
+    event: MessageEvent,
+    selector: str,
+    *,
+    fallback_role=0,
+    fallback_to_onebot_admin: bool = False,
+) -> str | None:
+    check = await check_qguard_command_permission(
+        bot,
+        event,
+        selector=selector,
+        fallback_role=fallback_role,
+    )
+    if check.denied_reason:
+        return check.denied_reason
+    if fallback_to_onebot_admin and not check.checked and not is_admin_event(event):
+        return "只有群管理员可以执行这个知识库命令。"
+    return None

@@ -39,13 +39,9 @@ class PluginCenterService:
 
         context = RegistryContext(group_id=group_id, user_id=operator_id, role=QGuardRole.SUPER_ADMIN)
         if plugin.group_enable_setter is None:
-            return ActionResult(
-                success=False,
-                action=str(AuditAction.SET_PLUGIN_ENABLED),
-                message=f"{plugin.display_name} 暂不支持通过插件中心开关。",
-            )
-
-        message = await set_group_enabled(plugin, context, enabled)
+            message = f"{plugin.display_name} 已通过插件中心{'开启' if enabled else '关闭'}命令入口。"
+        else:
+            message = await set_group_enabled(plugin, context, enabled)
         async with get_session() as session:
             await GroupPluginConfigRepo(session).set_enabled(group_id, plugin_id, enabled, operator_id)
             await AuditLogRepo(session).create(
@@ -57,7 +53,7 @@ class PluginCenterService:
             )
             await session.commit()
 
-        state = await resolve_group_enabled(plugin, context)
+        state = await resolve_group_enabled(plugin, context) if plugin.group_enable_setter is not None else enabled
         suffix = "" if state is None else f"（当前 {'开' if state else '关'}）"
         return ActionResult(
             success=True,

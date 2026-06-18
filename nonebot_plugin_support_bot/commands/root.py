@@ -9,6 +9,7 @@ from nonebot_plugin_support_bot.config import load_config
 from nonebot_plugin_support_bot.services.support_service import SupportBotService
 
 from ._common import (
+    check_qguard_command_permission,
     finish_reply,
     get_event_group_id,
     get_reply_text,
@@ -74,6 +75,15 @@ async def _(bot: Bot, event: MessageEvent) -> None:
     service = SupportBotService(config)
     group_id = get_event_group_id(event)
     is_admin = is_admin_event(event, config.support_bot_admins)
+    selector, fallback_role = _support_permission_selector(command, actions, args_text)
+    permission_check = await check_qguard_command_permission(
+        bot,
+        event,
+        selector=selector,
+        fallback_role=fallback_role,
+    )
+    if permission_check.denied_reason:
+        await finish_reply(support_command, bot, event, permission_check.denied_reason)
 
     if command == "/客服":
         action = actions[0] if actions else "帮助"
@@ -84,7 +94,7 @@ async def _(bot: Bot, event: MessageEvent) -> None:
         if action in {"开启", "关闭"}:
             if group_id is None:
                 await finish_reply(support_command, bot, event, "这个命令只能在群里使用。")
-            if not is_admin:
+            if not permission_check.checked and not is_admin:
                 await finish_reply(support_command, bot, event, "只有管理员可以修改 QInEX 智能问答开关。")
             await finish_reply(
                 support_command,
@@ -95,7 +105,7 @@ async def _(bot: Bot, event: MessageEvent) -> None:
         if action == "模式":
             if group_id is None:
                 await finish_reply(support_command, bot, event, "这个命令只能在群里使用。")
-            if not is_admin:
+            if not permission_check.checked and not is_admin:
                 await finish_reply(support_command, bot, event, "只有管理员可以修改 QInEX 智能问答模式。")
             mode = _parse_mode(args_text)
             if mode == "":
@@ -119,6 +129,14 @@ async def _(bot: Bot, event: MessageEvent) -> None:
     config = load_config()
     service = SupportBotService(config)
     group_id = get_event_group_id(event)
+    permission_check = await check_qguard_command_permission(
+        bot,
+        event,
+        selector="@机器人",
+        fallback_role=0,
+    )
+    if permission_check.denied_reason:
+        await finish_reply(support_mention, bot, event, permission_check.denied_reason)
     reply = await service.handle_user_issue(text, group_id=group_id, user_id=event.user_id)
     await _finish_support_response(support_mention, bot, event, service, config, text, reply)
 
@@ -129,6 +147,14 @@ async def _(bot: Bot, event: MessageEvent) -> None:
     config = load_config()
     service = SupportBotService(config)
     group_id = get_event_group_id(event)
+    permission_check = await check_qguard_command_permission(
+        bot,
+        event,
+        selector="@机器人",
+        fallback_role=0,
+    )
+    if permission_check.denied_reason:
+        return
     reply = await service.handle_user_issue(text, group_id=group_id, user_id=event.user_id)
     await _finish_support_response(support_continuation, bot, event, service, config, text, reply)
 
@@ -139,6 +165,14 @@ async def _(bot: Bot, event: MessageEvent) -> None:
     config = load_config()
     service = SupportBotService(config)
     if not await service.should_smart_listen(group_id):
+        return
+    permission_check = await check_qguard_command_permission(
+        bot,
+        event,
+        selector="@机器人",
+        fallback_role=0,
+    )
+    if permission_check.denied_reason:
         return
     reply = await service.handle_user_issue(event.get_plaintext(), group_id=group_id, user_id=event.user_id)
     await _finish_support_response(support_smart, bot, event, service, config, event.get_plaintext(), reply)
@@ -151,6 +185,21 @@ def _parse_mode(text: str) -> str:
     if stripped in {"智能监听", "智能", "smart"}:
         return "smart"
     return ""
+
+
+def _support_permission_selector(command: str, actions: list[str], args_text: str) -> tuple[str, int]:
+    if command == "/客服":
+        action = actions[0] if actions else "帮助"
+        if action == "模式":
+            mode_text = args_text.strip().split(maxsplit=1)[0] if args_text.strip() else ""
+            if mode_text in {"命令触发", "命令", "command"}:
+                return "/客服 模式 命令触发", 3
+            if mode_text in {"智能监听", "智能", "smart"}:
+                return "/客服 模式 智能监听", 3
+            return "/客服 模式", 3
+        fallback = 3 if action in {"开启", "关闭"} else 0
+        return f"/客服 {action}", fallback
+    return command, 0
 
 
 async def _notify_owner_if_needed(

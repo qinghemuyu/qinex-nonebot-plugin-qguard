@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from nonebot_plugin_ai_core.qguard_registry import get_qguard_descriptor as get_ai_descriptor
 from nonebot_plugin_group_wiki.qguard_registry import get_qguard_descriptor as get_wiki_descriptor
 from nonebot_plugin_qguard.enums import QGuardRole
@@ -10,9 +12,18 @@ from nonebot_plugin_qguard.registry import (
     clear_registry,
     register_plugin,
 )
+from nonebot_plugin_qguard.services.registered_permission_service import RegisteredCommandPermissionService
 from nonebot_plugin_qguard.services.plugin_center_service import PluginCenterService
 from nonebot_plugin_support_bot.models import init_db as init_support_db
 from nonebot_plugin_support_bot.qguard_registry import get_qguard_descriptor as get_support_descriptor
+
+
+class FakeOps:
+    def __init__(self, role: str = "member") -> None:
+        self.role = role
+
+    async def get_group_member_info(self, group_id: int, user_id: int, no_cache: bool = True):
+        return {"user_id": user_id, "role": self.role}
 
 
 def _register_test_descriptors() -> None:
@@ -101,3 +112,62 @@ async def test_plugin_center_can_toggle_support_bot_and_hide_help() -> None:
         query="客服",
     )
     assert "/客服 状态" not in help_text
+
+
+async def test_plugin_permission_override_blocks_command_execution() -> None:
+    _register_test_descriptors()
+    group_id = 880200000 + (uuid4().int % 100000000)
+
+    result = await PluginCenterService().set_plugin_permission(
+        group_id=group_id,
+        operator_id=1348984838,
+        plugin_id="qinex_answer",
+        selector="/客服",
+        role_text="群主",
+    )
+
+    assert result.success
+    denied = await RegisteredCommandPermissionService().check(
+        FakeOps(role="admin"),
+        group_id=group_id,
+        operator_id=12345,
+        plugin_id="qinex_answer",
+        selector="/客服 状态",
+        fallback_role=QGuardRole.MEMBER,
+    )
+    allowed = await RegisteredCommandPermissionService().check(
+        FakeOps(role="owner"),
+        group_id=group_id,
+        operator_id=12345,
+        plugin_id="qinex_answer",
+        selector="/客服 状态",
+        fallback_role=QGuardRole.MEMBER,
+    )
+
+    assert not denied.allowed
+    assert denied.required_role == QGuardRole.GROUP_OWNER
+    assert allowed.allowed
+
+
+async def test_generic_plugin_center_toggle_blocks_registered_commands() -> None:
+    _register_test_descriptors()
+    group_id = 880300000 + (uuid4().int % 100000000)
+
+    result = await PluginCenterService().set_plugin_enabled(
+        group_id=group_id,
+        operator_id=1348984838,
+        plugin_id="group_wiki",
+        enabled=False,
+    )
+
+    assert result.success
+    decision = await RegisteredCommandPermissionService().check(
+        FakeOps(role="owner"),
+        group_id=group_id,
+        operator_id=12345,
+        plugin_id="group_wiki",
+        selector="/知识 搜索",
+        fallback_role=QGuardRole.MEMBER,
+    )
+    assert not decision.allowed
+    assert "已在本群关闭" in decision.reason

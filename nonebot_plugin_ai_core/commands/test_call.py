@@ -5,7 +5,7 @@ from nonebot_plugin_ai_core.config import load_config
 from nonebot_plugin_ai_core.exceptions import AICoreError
 from nonebot_plugin_ai_core.service import AICoreService
 
-from ._common import finish_reply, get_event_group_id, is_ai_core_admin
+from ._common import check_qguard_command_permission, finish_reply, get_event_group_id, is_ai_core_admin
 
 test_matcher = on_message(priority=5, block=False)
 
@@ -18,7 +18,15 @@ async def _(bot: Bot, event: MessageEvent) -> None:
         return
 
     config = load_config()
-    if not is_ai_core_admin(event, config):
+    permission_check = await check_qguard_command_permission(
+        bot,
+        event,
+        selector="/ai测试",
+        fallback_role=5,
+    )
+    if permission_check.denied_reason:
+        await finish_reply(test_matcher, bot, event, permission_check.denied_reason)
+    if not permission_check.checked and not is_ai_core_admin(event, config):
         await finish_reply(test_matcher, bot, event, "权限不足。")
 
     try:

@@ -138,6 +138,33 @@ def visible_commands(
     return commands
 
 
+def find_command_descriptor(descriptor: PluginDescriptor, selector: str) -> CommandDescriptor | None:
+    normalized = selector.strip()
+    if not normalized:
+        return None
+
+    matches: list[tuple[int, int, CommandDescriptor]] = []
+    for command in descriptor.commands:
+        score = _command_match_score(command, normalized)
+        if score is not None:
+            matches.append((score, -len(command.usage), command))
+    if not matches:
+        return None
+    matches.sort(key=lambda item: (item[0], item[1]))
+    return matches[0][2]
+
+
+def command_required_role(
+    command: CommandDescriptor | None,
+    *,
+    permission_overrides: dict[str, QGuardRole] | None = None,
+    fallback_role: QGuardRole = QGuardRole.MEMBER,
+) -> QGuardRole:
+    if command is None:
+        return fallback_role
+    return _overridden_role(command, permission_overrides)
+
+
 def build_help_text(
     role: QGuardRole = QGuardRole.MEMBER,
     *,
@@ -186,7 +213,7 @@ def build_plugin_list_text(role: QGuardRole = QGuardRole.MEMBER) -> str:
         suffix = "默认开" if plugin.default_enabled else "默认关"
         lines.append(f"- {plugin.plugin_id}：{plugin.display_name}（{suffix}，命令 {len(commands)} 个）")
     lines.append("")
-    lines.append("用法：/管 插件 状态，/管 插件 帮助 插件ID")
+    lines.append("用法：/管 插件 状态，/管 插件 帮助 插件ID，/管 插件 开|关 插件ID")
     return "\n".join(lines)
 
 
@@ -211,9 +238,10 @@ def build_plugin_help_text(plugin_id: str, role: QGuardRole = QGuardRole.MEMBER)
 
 async def build_plugin_status_text(context: RegistryContext) -> str:
     plugins = get_registered_plugins()
+    configs = await _configs_for_context(context)
     lines = ["插件中心状态"]
     for plugin in plugins:
-        lines.append(await _plugin_status_line(plugin, context))
+        lines.append(await _plugin_status_line(plugin, context, configs.get(plugin.plugin_id)))
     return "\n".join(lines)
 
 
@@ -274,16 +302,19 @@ async def build_single_plugin_status_text(plugin_id: str, context: RegistryConte
     plugin = get_plugin(plugin_id)
     if plugin is None:
         return f"没有找到插件：{plugin_id}"
-    return await _plugin_status_line(plugin, context)
+    configs = await _configs_for_context(context)
+    return await _plugin_status_line(plugin, context, configs.get(plugin.plugin_id))
 
 
-async def _plugin_status_line(plugin: PluginDescriptor, context: RegistryContext) -> str:
+async def _plugin_status_line(plugin: PluginDescriptor, context: RegistryContext, config=None) -> str:
     status = "已注册"
     if plugin.status_provider is not None:
         try:
             status = await _resolve_provider(plugin.status_provider, context)
         except Exception as exc:
             status = f"状态获取失败：{exc.__class__.__name__}"
+    if config is not None and config.enabled is not None:
+        status += f"，插件中心{'开' if config.enabled else '关'}"
     return f"{plugin.display_name}：{status}"
 
 
@@ -331,6 +362,30 @@ def _filtered_plugins(query: str) -> tuple[PluginDescriptor, ...]:
 
 def _normalize_query(query: str) -> str:
     return query.strip().lower()
+
+
+async def _configs_for_context(context: RegistryContext):
+    if context.group_id is None:
+        return {}
+    try:
+        from nonebot_plugin_qguard.services.plugin_center_service import PluginCenterService
+
+        return await PluginCenterService().configs_for_group(context.group_id)
+    except Exception:
+        return {}
+
+
+def _command_match_score(command: CommandDescriptor, selector: str) -> int | None:
+    variants = (command.usage, command.command, *command.aliases)
+    if selector in variants:
+        return 0
+    if selector.startswith(f"{command.usage} "):
+        return 1
+    if command.usage.startswith(f"{selector} "):
+        return 2
+    if any(selector.startswith(f"{alias} ") for alias in command.aliases):
+        return 3
+    return None
 
 
 def parse_registry_role(text: str) -> QGuardRole:

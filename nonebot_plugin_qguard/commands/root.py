@@ -25,7 +25,7 @@ from nonebot_plugin_qguard.services.auto_recall_service import (
 from nonebot_plugin_qguard.utils.formatter import format_group_status
 from nonebot_plugin_qguard.utils.timeparse import parse_duration
 
-from ._common import ensure_manager, finish_reply, make_ops, parse_qguard_args
+from ._common import build_qguard_command_selector, ensure_manager, finish_reply, make_ops, parse_qguard_args
 
 root_matcher = on_message(priority=5, block=False)
 register_plugin(get_qguard_descriptor())
@@ -45,11 +45,14 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         context = RegistryContext(group_id=event.group_id, user_id=event.user_id, role=role)
         await finish_reply(root_matcher, bot, event, await build_help_text_for_context(context, query=query))
     if args[0] == "状态":
+        denied = await ensure_manager(bot, event, QGuardRole.TRUSTED)
+        if denied:
+            await finish_reply(root_matcher, bot, event, denied)
         config = await service.status(event.group_id)
         await finish_reply(root_matcher, bot, event, format_group_status(config))
     if args[0] == "插件":
         await _handle_plugin_center(bot, event, args)
-    denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN)
+    denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN, enforce_plugin_enabled=args[0] != "开启")
     if denied:
         await finish_reply(root_matcher, bot, event, denied)
     if args[0] == "开启":
@@ -102,6 +105,15 @@ async def _handle_plugin_center(bot: Bot, event: GroupMessageEvent, args: list[s
         await finish_reply(root_matcher, bot, event, build_plugin_help_text(args[2], role))
 
     if action == "状态":
+        denied = await ensure_manager(
+            bot,
+            event,
+            QGuardRole.TRUSTED,
+            command_selector=build_qguard_command_selector(args),
+            enforce_plugin_enabled=False,
+        )
+        if denied:
+            await finish_reply(root_matcher, bot, event, denied)
         if role < QGuardRole.TRUSTED:
             await finish_reply(root_matcher, bot, event, "权限不足。")
         context = RegistryContext(group_id=event.group_id, user_id=event.user_id, role=role)
@@ -111,6 +123,15 @@ async def _handle_plugin_center(bot: Bot, event: GroupMessageEvent, args: list[s
         await finish_reply(root_matcher, bot, event, await build_plugin_status_text(context))
 
     if action in {"开", "关"}:
+        denied = await ensure_manager(
+            bot,
+            event,
+            QGuardRole.GROUP_OWNER,
+            command_selector=build_qguard_command_selector(args),
+            enforce_plugin_enabled=False,
+        )
+        if denied:
+            await finish_reply(root_matcher, bot, event, denied)
         if role < QGuardRole.GROUP_OWNER:
             await finish_reply(root_matcher, bot, event, "权限不足。")
         if len(args) < 3:
@@ -124,6 +145,15 @@ async def _handle_plugin_center(bot: Bot, event: GroupMessageEvent, args: list[s
         await finish_reply(root_matcher, bot, event, result.message)
 
     if action == "权限":
+        denied = await ensure_manager(
+            bot,
+            event,
+            QGuardRole.SUPER_ADMIN,
+            command_selector=build_qguard_command_selector(args),
+            enforce_plugin_enabled=False,
+        )
+        if denied:
+            await finish_reply(root_matcher, bot, event, denied)
         if role < QGuardRole.SUPER_ADMIN:
             await finish_reply(root_matcher, bot, event, "权限不足。")
         if len(args) < 5:

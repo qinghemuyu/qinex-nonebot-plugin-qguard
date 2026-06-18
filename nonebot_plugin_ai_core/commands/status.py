@@ -4,7 +4,7 @@ from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 from nonebot_plugin_ai_core.config import load_config
 from nonebot_plugin_ai_core.service import AICoreService
 
-from ._common import finish_reply, is_ai_core_admin
+from ._common import check_qguard_command_permission, finish_reply, is_ai_core_admin
 
 status_matcher = on_message(priority=5, block=False)
 
@@ -15,7 +15,15 @@ async def _(bot: Bot, event: MessageEvent) -> None:
     if text != "/ai状态":
         return
     config = load_config()
-    if not is_ai_core_admin(event, config):
+    permission_check = await check_qguard_command_permission(
+        bot,
+        event,
+        selector="/ai状态",
+        fallback_role=5,
+    )
+    if permission_check.denied_reason:
+        await finish_reply(status_matcher, bot, event, permission_check.denied_reason)
+    if not permission_check.checked and not is_ai_core_admin(event, config):
         await finish_reply(status_matcher, bot, event, "权限不足。")
     summary = await AICoreService(config).usage_summary()
     cache_state = "开启" if config.ai_core_enable_cache else "关闭"

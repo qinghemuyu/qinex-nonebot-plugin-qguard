@@ -40,6 +40,7 @@ def get_qguard_descriptor() -> PluginDescriptor:
         commands=(
             _cmd("/问 问题", "按本群知识范围直接问知识库", QGuardRole.MEMBER, reply_category="chat_reply"),
             _cmd("/FAQ 关键词", "查询常见问答", QGuardRole.MEMBER, reply_category="chat_reply"),
+            _cmd("/知识 问 问题", "通过知识库子命令提问", QGuardRole.MEMBER, reply_category="chat_reply"),
             _cmd("/知识 搜索 关键词", "搜索知识库", QGuardRole.MEMBER, reply_category="chat_reply"),
             _cmd("/知识 查看 K0001", "查看知识条目", QGuardRole.MEMBER, reply_category="chat_reply"),
             _cmd("/知识 有用 K0001", "反馈知识有用", QGuardRole.MEMBER, reply_category="chat_reply"),
