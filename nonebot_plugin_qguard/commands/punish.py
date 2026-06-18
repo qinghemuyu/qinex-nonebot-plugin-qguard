@@ -2,11 +2,12 @@ from nonebot import on_message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 
 from nonebot_plugin_qguard.constants import DEFAULT_REASON
+from nonebot_plugin_qguard.enums import QGuardRole
 from nonebot_plugin_qguard.services.punishment_service import PunishmentService
 from nonebot_plugin_qguard.utils.message_parser import get_reply_message_id, parse_target
 from nonebot_plugin_qguard.utils.timeparse import parse_duration
 
-from ._common import finish_reply, make_ops, parse_qguard_args
+from ._common import ensure_manager, finish_reply, make_ops, parse_qguard_args
 
 punish_matcher = on_message(priority=5, block=False)
 
@@ -16,6 +17,14 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
     args = parse_qguard_args(event)
     if not args or args[0] not in {"禁", "解禁", "踢", "踢黑", "警告", "撤回", "查"}:
         return
+    denied = await ensure_manager(
+        bot,
+        event,
+        _required_role(args[0]),
+        command_selector=_command_selector(args[0]),
+    )
+    if denied:
+        await finish_reply(punish_matcher, bot, event, denied)
     ops = make_ops(bot)
     service = PunishmentService()
 
@@ -69,3 +78,26 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
     if args[0] == "警告":
         result = await service.warn(ops, event.group_id, event.user_id, parsed.user_id, reason)
         await finish_reply(punish_matcher, bot, event, result.message)
+
+
+def _required_role(action: str) -> QGuardRole:
+    if action in {"禁", "解禁", "警告", "撤回"}:
+        return QGuardRole.MINI_ADMIN
+    if action == "查":
+        return QGuardRole.TRUSTED
+    if action == "踢黑":
+        return QGuardRole.GROUP_OWNER
+    return QGuardRole.GROUP_ADMIN
+
+
+def _command_selector(action: str) -> str:
+    selectors = {
+        "禁": "/管 禁 @用户 10m 原因",
+        "解禁": "/管 解禁 @用户",
+        "踢": "/管 踢 @用户 原因",
+        "踢黑": "/管 踢黑 @用户 原因",
+        "警告": "/管 警告 @用户 原因",
+        "撤回": "/管 撤回",
+        "查": "/管 查 @用户",
+    }
+    return selectors[action]

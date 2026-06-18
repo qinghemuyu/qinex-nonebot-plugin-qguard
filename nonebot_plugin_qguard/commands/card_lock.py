@@ -20,7 +20,8 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
     service = CardLockService()
 
     if args[0] == "名片锁全群":
-        denied = await ensure_manager(bot, event, QGuardRole.GROUP_OWNER)
+        command_selector = "/管 名片锁全群 关" if len(args) >= 2 and args[1] == "关" else "/管 名片锁全群 开"
+        denied = await ensure_manager(bot, event, QGuardRole.GROUP_OWNER, command_selector=command_selector)
         if denied:
             await finish_reply(card_lock_matcher, bot, event, denied)
         if len(args) < 2 or args[1] not in {"开", "关"}:
@@ -29,6 +30,9 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         await finish_reply(card_lock_matcher, bot, event, result.message)
 
     if args[0] == "名片锁列表":
+        denied = await ensure_manager(bot, event, QGuardRole.TRUSTED, command_selector="/管 名片锁列表")
+        if denied:
+            await finish_reply(card_lock_matcher, bot, event, denied)
         locks = await service.list_locks(event.group_id)
         if not locks:
             await finish_reply(card_lock_matcher, bot, event, "当前没有启用中的名片锁。")
@@ -38,7 +42,12 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         await finish_reply(card_lock_matcher, bot, event, "\n".join(lines))
 
     if args[0] in {"名片扫描", "名片修复"}:
-        denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN)
+        denied = await ensure_manager(
+            bot,
+            event,
+            QGuardRole.GROUP_ADMIN,
+            command_selector="/管 名片修复" if args[0] == "名片修复" else "/管 名片扫描",
+        )
         if denied:
             await finish_reply(card_lock_matcher, bot, event, denied)
         should_fix = args[0] == "名片修复"
@@ -55,12 +64,15 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         await finish_reply(card_lock_matcher, bot, event, "请指定目标用户，支持 @用户 或 QQ 号。")
 
     if args[0] == "名片锁":
+        denied = await ensure_manager(bot, event, QGuardRole.GROUP_OWNER, command_selector="/管 名片锁 @用户 固定名片")
+        if denied:
+            await finish_reply(card_lock_matcher, bot, event, denied)
         if not parsed.rest:
             await finish_reply(card_lock_matcher, bot, event, "用法：/管 名片锁 @用户 固定名片")
         result = await service.lock_card(ops, event.group_id, event.user_id, parsed.user_id, parsed.rest)
         await finish_reply(card_lock_matcher, bot, event, result.message)
     if args[0] == "名片解锁":
-        denied = await ensure_manager(bot, event, QGuardRole.GROUP_OWNER)
+        denied = await ensure_manager(bot, event, QGuardRole.GROUP_OWNER, command_selector="/管 名片解锁 @用户")
         if denied:
             await finish_reply(card_lock_matcher, bot, event, denied)
         result = await service.unlock_card(event.group_id, event.user_id, parsed.user_id)

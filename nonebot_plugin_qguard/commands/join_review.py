@@ -15,7 +15,12 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
     if not args or args[0] not in {"入群审核", "入群暗号", "入群拒绝理由"}:
         return
 
-    denied = await ensure_manager(bot, event, QGuardRole.GROUP_OWNER)
+    denied = await ensure_manager(
+        bot,
+        event,
+        QGuardRole.GROUP_ADMIN,
+        command_selector=_command_selector(args),
+    )
     if denied:
         await finish_reply(join_review_matcher, bot, event, denied)
 
@@ -38,3 +43,11 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
             await finish_reply(join_review_matcher, bot, event, "用法：/管 入群拒绝理由 设置 xxx")
         result = await service.set_reject_reason(event.group_id, event.user_id, " ".join(args[2:]))
         await finish_reply(join_review_matcher, bot, event, result.message)
+
+
+def _command_selector(args: list[str]) -> str:
+    if args[0] == "入群暗号":
+        return "/管 入群暗号 设置 xxx"
+    if args[0] == "入群拒绝理由":
+        return "/管 入群拒绝理由 设置 xxx"
+    return "/管 入群审核 关" if len(args) >= 2 and args[1] == "关" else "/管 入群审核 开"

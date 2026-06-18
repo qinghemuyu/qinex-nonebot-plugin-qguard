@@ -18,7 +18,7 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
 
     service = ScoreService()
     if len(args) >= 2 and args[1] == "清零":
-        denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN)
+        denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN, command_selector="/管 积分 清零 @用户")
         if denied:
             await finish_reply(score_matcher, bot, event, denied)
         parsed = parse_target(event, args, target_index=2)
@@ -27,6 +27,9 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         result = await service.reset_score(event.group_id, event.user_id, parsed.user_id)
         await finish_reply(score_matcher, bot, event, result.message)
 
+    denied = await ensure_manager(bot, event, QGuardRole.TRUSTED, command_selector="/管 积分 @用户")
+    if denied:
+        await finish_reply(score_matcher, bot, event, denied)
     parsed = parse_target(event, args, target_index=1)
     if parsed is None:
         await finish_reply(score_matcher, bot, event, "用法：/管 积分 @用户")

@@ -16,7 +16,12 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
     if not args or args[0] not in {"新人保护", "新人禁链接", "新人禁图片"}:
         return
 
-    denied = await ensure_manager(bot, event, QGuardRole.GROUP_OWNER)
+    denied = await ensure_manager(
+        bot,
+        event,
+        QGuardRole.GROUP_ADMIN,
+        command_selector=_command_selector(args),
+    )
     if denied:
         await finish_reply(newbie_matcher, bot, event, denied)
 
@@ -59,3 +64,17 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         await finish_reply(newbie_matcher, bot, event, result.message)
 
     await finish_reply(newbie_matcher, bot, event, "用法：/管 新人保护 开|关|时长|链接|图片 ...")
+
+
+def _command_selector(args: list[str]) -> str:
+    if args[0] == "新人禁链接":
+        return "/管 新人禁链接 开|关"
+    if args[0] == "新人禁图片":
+        return "/管 新人禁图片 开|关"
+    if len(args) >= 2 and args[1] == "时长":
+        return "/管 新人保护 时长 24h"
+    if len(args) >= 2 and args[1] == "链接":
+        return "/管 新人保护 链接 开|关"
+    if len(args) >= 2 and args[1] == "图片":
+        return "/管 新人保护 图片 开|关"
+    return "/管 新人保护 关" if len(args) >= 2 and args[1] == "关" else "/管 新人保护 开"

@@ -17,7 +17,12 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
     if not args or args[0] not in {"最近消息", "消息"}:
         return
 
-    denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN)
+    denied = await ensure_manager(
+        bot,
+        event,
+        QGuardRole.TRUSTED,
+        command_selector="/管 消息 消息ID" if args[0] == "消息" else "/管 最近消息 @用户",
+    )
     if denied:
         await finish_reply(message_query_matcher, bot, event, denied)
 

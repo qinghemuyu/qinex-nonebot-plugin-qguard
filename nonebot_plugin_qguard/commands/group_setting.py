@@ -19,7 +19,12 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
     if not args or args[0] not in {"群名", "群名锁", "群名修复", "匿名", "匿名锁", "全体禁言", "全员禁言", "头衔", "巡检", "自动巡检"}:
         return
 
-    denied = await ensure_manager(bot, event, QGuardRole.GROUP_OWNER)
+    denied = await ensure_manager(
+        bot,
+        event,
+        _required_role(args),
+        command_selector=_command_selector(args),
+    )
     if denied:
         await finish_reply(group_setting_matcher, bot, event, denied)
 
@@ -109,3 +114,37 @@ def _bot_id(bot: Bot) -> int | None:
         return int(bot.self_id)
     except (TypeError, ValueError):
         return None
+
+
+def _required_role(args: list[str]) -> QGuardRole:
+    if args[0] in {"巡检", "自动巡检"}:
+        return QGuardRole.GROUP_ADMIN
+    return QGuardRole.GROUP_OWNER
+
+
+def _command_selector(args: list[str]) -> str:
+    if args[0] == "群名":
+        return "/管 群名 设置 新群名"
+    if args[0] == "群名锁":
+        return "/管 群名锁 关" if len(args) >= 2 and args[1] == "关" else "/管 群名锁 开 新群名"
+    if args[0] == "群名修复":
+        return "/管 群名修复"
+    if args[0] == "匿名":
+        return "/管 匿名 开|关"
+    if args[0] == "匿名锁":
+        return "/管 匿名锁 关" if len(args) >= 2 and args[1] == "关" else "/管 匿名锁 开 开|关"
+    if args[0] in {"全体禁言", "全员禁言"}:
+        return "/管 全体禁言 开|关"
+    if args[0] == "头衔":
+        return "/管 头衔 @用户 头衔"
+    if args[0] == "巡检":
+        if len(args) >= 2 and args[1] == "名片":
+            return "/管 巡检 名片"
+        if len(args) >= 2 and args[1] in {"权限", "群设置"}:
+            return "/管 巡检 权限"
+        return "/管 巡检"
+    if args[0] == "自动巡检":
+        if len(args) >= 2 and args[1] == "间隔":
+            return "/管 自动巡检 间隔 5s"
+        return "/管 自动巡检 关" if len(args) >= 2 and args[1] == "关" else "/管 自动巡检 开"
+    return "/管 " + args[0]

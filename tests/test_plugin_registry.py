@@ -14,6 +14,7 @@ from nonebot_plugin_qguard.registry import (
 )
 from nonebot_plugin_qguard.services.registered_permission_service import RegisteredCommandPermissionService
 from nonebot_plugin_qguard.services.plugin_center_service import PluginCenterService
+from nonebot_plugin_qguard.services.member_role_service import MemberRoleService
 from nonebot_plugin_support_bot.models import init_db as init_support_db
 from nonebot_plugin_support_bot.qguard_registry import get_qguard_descriptor as get_support_descriptor
 
@@ -171,3 +172,60 @@ async def test_generic_plugin_center_toggle_blocks_registered_commands() -> None
     )
     assert not decision.allowed
     assert "已在本群关闭" in decision.reason
+
+
+async def test_qguard_registered_roles_match_command_execution_matrix() -> None:
+    _register_test_descriptors()
+    group_id = 880400000 + (uuid4().int % 100000000)
+    trusted_id = 30001 + (uuid4().int % 100000)
+    mini_id = 40001 + (uuid4().int % 100000)
+    await MemberRoleService().set_role(group_id, 1348984838, trusted_id, QGuardRole.TRUSTED)
+    await MemberRoleService().set_role(group_id, 1348984838, mini_id, QGuardRole.MINI_ADMIN)
+
+    trusted_list = await RegisteredCommandPermissionService().check(
+        FakeOps(role="member"),
+        group_id=group_id,
+        operator_id=trusted_id,
+        plugin_id="qguard",
+        selector="/管 广告词 列表",
+        fallback_role=QGuardRole.TRUSTED,
+    )
+    mini_mute = await RegisteredCommandPermissionService().check(
+        FakeOps(role="member"),
+        group_id=group_id,
+        operator_id=mini_id,
+        plugin_id="qguard",
+        selector="/管 禁 @用户 10m 原因",
+        fallback_role=QGuardRole.MINI_ADMIN,
+    )
+    admin_newbie = await RegisteredCommandPermissionService().check(
+        FakeOps(role="admin"),
+        group_id=group_id,
+        operator_id=12345,
+        plugin_id="qguard",
+        selector="/管 新人保护 开",
+        fallback_role=QGuardRole.GROUP_ADMIN,
+    )
+    admin_auto_patrol = await RegisteredCommandPermissionService().check(
+        FakeOps(role="admin"),
+        group_id=group_id,
+        operator_id=12345,
+        plugin_id="qguard",
+        selector="/管 自动巡检 开",
+        fallback_role=QGuardRole.GROUP_ADMIN,
+    )
+    admin_kick_black = await RegisteredCommandPermissionService().check(
+        FakeOps(role="admin"),
+        group_id=group_id,
+        operator_id=12345,
+        plugin_id="qguard",
+        selector="/管 踢黑 @用户 原因",
+        fallback_role=QGuardRole.GROUP_OWNER,
+    )
+
+    assert trusted_list.allowed
+    assert mini_mute.allowed
+    assert admin_newbie.allowed
+    assert admin_auto_patrol.allowed
+    assert not admin_kick_black.allowed
+    assert admin_kick_black.required_role == QGuardRole.GROUP_OWNER

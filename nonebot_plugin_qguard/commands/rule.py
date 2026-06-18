@@ -24,18 +24,25 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
     if len(args) < 2:
         await finish_reply(rule_matcher, bot, event, "用法：/管 规则 添加|删除|列表|测试 ...")
 
-    if args[1] in {"添加", "删除"}:
-        denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN)
+    if args[1] == "添加":
+        denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN, command_selector=_add_rule_selector(args))
         if denied:
             await finish_reply(rule_matcher, bot, event, denied)
-
-    if args[1] == "添加":
         await _handle_add_rule(bot, event, args)
     elif args[1] == "删除":
+        denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN, command_selector="/管 规则 删除 ID")
+        if denied:
+            await finish_reply(rule_matcher, bot, event, denied)
         await _handle_delete_rule(bot, event, args)
     elif args[1] == "列表":
+        denied = await ensure_manager(bot, event, QGuardRole.TRUSTED, command_selector="/管 规则 列表")
+        if denied:
+            await finish_reply(rule_matcher, bot, event, denied)
         await _handle_list_rules(bot, event)
     elif args[1] == "测试":
+        denied = await ensure_manager(bot, event, QGuardRole.TRUSTED, command_selector="/管 规则 测试 文本")
+        if denied:
+            await finish_reply(rule_matcher, bot, event, denied)
         await _handle_test_rule(bot, event, args)
     else:
         await finish_reply(rule_matcher, bot, event, "未知规则命令。")
@@ -153,6 +160,19 @@ def _parse_rule_type(text: str) -> RuleType:
     if text in {"正则", "regex"}:
         return RuleType.REGEX
     raise ValueError("规则类型只支持：关键词、正则。")
+
+
+def _add_rule_selector(args: list[str]) -> str:
+    action_text = " ".join(args[3:])
+    if "踢黑" in action_text:
+        return "/管 规则 添加 正则 xxx 踢出"
+    if "踢出" in action_text or "踢" in action_text:
+        return "/管 规则 添加 正则 xxx 踢出"
+    if "禁言" in action_text:
+        return "/管 规则 添加 关键词 xxx 禁言10m"
+    if "撤回" in action_text or "删除" in action_text:
+        return "/管 规则 添加 关键词 xxx 撤回"
+    return "/管 规则 添加 关键词 xxx 警告"
 
 
 def _parse_rule_action(tokens: list[str]) -> tuple[RuleAction, int, bool, int]:
