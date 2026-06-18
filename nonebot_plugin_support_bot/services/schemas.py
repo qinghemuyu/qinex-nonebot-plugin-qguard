@@ -24,3 +24,6 @@ class SupportReply(BaseModel):
     references: list[str] = Field(default_factory=list)
     ai_used: bool = False
     no_answer_id: str = ""
+    harassment_anger: int = 0
+    harassment_score_delta: int = 0
+    harassment_reason: str = ""

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -75,6 +75,29 @@ class SupportNoAnswer(Base):
     question: Mapped[str] = mapped_column(Text, nullable=False)
     reason: Mapped[str] = mapped_column(String(128), default="no_knowledge", nullable=False)
     notified_owner: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+
+class SupportHarassmentMemory(Base):
+    __tablename__ = "support_harassment_memory"
+    __table_args__ = (UniqueConstraint("group_id", "user_id", name="uq_support_harassment_group_user"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    group_id: Mapped[int] = mapped_column(BigInteger, default=0, index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    anger_score: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_strikes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    score_punish_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_reason: Mapped[str] = mapped_column(String(128), default="", nullable=False)
+    last_text: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    last_event_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_score_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,

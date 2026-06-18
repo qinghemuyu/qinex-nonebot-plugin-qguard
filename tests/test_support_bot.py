@@ -192,6 +192,55 @@ async def test_answer_bot_rejects_non_qinex_question() -> None:
 
 
 @pytest.mark.asyncio
+async def test_support_bot_harassment_adds_score_delta_for_abuse() -> None:
+    await init_db()
+    group_id = 856000000 + (uuid4().int % 100000000)
+    service = SupportBotService(
+        Config(support_bot_harassment_score_threshold=3, support_bot_harassment_score_cooldown_seconds=0),
+        integration_service=FakeIntegration(),
+    )
+
+    reply = await service.handle_user_issue("垃圾机器人", group_id=group_id, user_id=456)
+
+    assert reply.state == "out_of_scope"
+    assert reply.harassment_reason == "辱骂智能客服"
+    assert reply.harassment_score_delta == 1
+    assert "交给群管积分处理" in reply.text
+
+
+@pytest.mark.asyncio
+async def test_support_bot_harassment_accumulates_mild_out_of_scope() -> None:
+    await init_db()
+    group_id = 856500000 + (uuid4().int % 100000000)
+    service = SupportBotService(
+        Config(support_bot_harassment_score_threshold=2, support_bot_harassment_score_cooldown_seconds=0),
+        integration_service=FakeIntegration(),
+    )
+
+    first = await service.handle_user_issue("天气怎么样", group_id=group_id, user_id=457)
+    second = await service.handle_user_issue("讲个笑话", group_id=group_id, user_id=457)
+
+    assert first.harassment_score_delta == 0
+    assert second.harassment_score_delta == 1
+    assert second.harassment_reason == "反复发送非 QInEX 问题"
+
+
+@pytest.mark.asyncio
+async def test_support_bot_harassment_ignores_owner() -> None:
+    await init_db()
+    group_id = 856800000 + (uuid4().int % 100000000)
+    service = SupportBotService(
+        Config(support_bot_harassment_score_threshold=3, support_bot_harassment_score_cooldown_seconds=0),
+        integration_service=FakeIntegration(),
+    )
+
+    reply = await service.handle_user_issue("垃圾机器人", group_id=group_id, user_id=1348984838)
+
+    assert reply.harassment_score_delta == 0
+    assert "群管积分" not in reply.text
+
+
+@pytest.mark.asyncio
 async def test_support_bot_no_answer_in_current_scope() -> None:
     await init_db()
     group_id = 860000000 + (uuid4().int % 100000000)

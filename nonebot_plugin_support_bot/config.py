@@ -17,6 +17,13 @@ class Config(BaseModel):
     support_bot_max_reply_length: int = 1200
     support_bot_software_name: str = "QInEX"
     support_bot_admins: list[int] = [1348984838]
+    support_bot_harassment_enabled: bool = True
+    support_bot_harassment_window_seconds: int = 300
+    support_bot_harassment_warn_threshold: int = 3
+    support_bot_harassment_score_threshold: int = 5
+    support_bot_harassment_score_cooldown_seconds: int = 60
+    support_bot_harassment_score_delta: int = 1
+    support_bot_harassment_max_score_delta: int = 3
 
 
 def load_config() -> Config:

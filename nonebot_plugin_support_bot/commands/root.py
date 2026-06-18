@@ -1,3 +1,6 @@
+from types import SimpleNamespace
+from typing import Any
+
 from nonebot import on_message
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 from nonebot.rule import Rule, to_me
@@ -107,8 +110,7 @@ async def _(bot: Bot, event: MessageEvent) -> None:
         if not text:
             await finish_reply(support_command, bot, event, "用法：/求助 <问题描述>")
         reply = await service.handle_user_issue(text, group_id=group_id, user_id=event.user_id)
-        await _notify_owner_if_needed(bot, event, service, config, text, reply)
-        await finish_reply(support_command, bot, event, reply.text)
+        await _finish_support_response(support_command, bot, event, service, config, text, reply)
 
 
 @support_mention.handle()
@@ -118,8 +120,7 @@ async def _(bot: Bot, event: MessageEvent) -> None:
     service = SupportBotService(config)
     group_id = get_event_group_id(event)
     reply = await service.handle_user_issue(text, group_id=group_id, user_id=event.user_id)
-    await _notify_owner_if_needed(bot, event, service, config, text, reply)
-    await finish_reply(support_mention, bot, event, reply.text)
+    await _finish_support_response(support_mention, bot, event, service, config, text, reply)
 
 
 @support_continuation.handle()
@@ -129,8 +130,7 @@ async def _(bot: Bot, event: MessageEvent) -> None:
     service = SupportBotService(config)
     group_id = get_event_group_id(event)
     reply = await service.handle_user_issue(text, group_id=group_id, user_id=event.user_id)
-    await _notify_owner_if_needed(bot, event, service, config, text, reply)
-    await finish_reply(support_continuation, bot, event, reply.text)
+    await _finish_support_response(support_continuation, bot, event, service, config, text, reply)
 
 
 @support_smart.handle()
@@ -141,8 +141,7 @@ async def _(bot: Bot, event: MessageEvent) -> None:
     if not await service.should_smart_listen(group_id):
         return
     reply = await service.handle_user_issue(event.get_plaintext(), group_id=group_id, user_id=event.user_id)
-    await _notify_owner_if_needed(bot, event, service, config, event.get_plaintext(), reply)
-    await finish_reply(support_smart, bot, event, reply.text)
+    await _finish_support_response(support_smart, bot, event, service, config, event.get_plaintext(), reply)
 
 
 def _parse_mode(text: str) -> str:
@@ -183,3 +182,65 @@ async def _notify_owner_if_needed(
             continue
     if notified:
         await service.mark_no_answer_notified(record_no)
+
+
+async def _finish_support_response(
+    matcher: Any,
+    bot: Bot,
+    event: MessageEvent,
+    service: SupportBotService,
+    config,
+    question: str,
+    reply,
+) -> None:
+    score_result = await _apply_harassment_score(bot, event, config, reply)
+    if score_result is not None:
+        line = f"群管积分：+{score_result.delta}，当前 {score_result.current_score}"
+        if score_result.penalty_action:
+            line += f"，已触发 {score_result.penalty_action}"
+        reply.text = f"{reply.text}\n{line}"
+    await _notify_owner_if_needed(bot, event, service, config, question, reply)
+    await finish_reply(matcher, bot, event, reply.text)
+
+
+async def _apply_harassment_score(bot: Bot, event: MessageEvent, config, reply):
+    delta = int(getattr(reply, "harassment_score_delta", 0) or 0)
+    group_id = get_event_group_id(event)
+    if delta <= 0 or group_id is None:
+        return None
+    if is_admin_event(event, config.support_bot_admins):
+        return None
+    try:
+        from nonebot_plugin_qguard.adapter.onebot_v11_ops import OneBotV11GroupOps
+        from nonebot_plugin_qguard.enums import RuleAction
+        from nonebot_plugin_qguard.models.base import get_session as get_qguard_session
+        from nonebot_plugin_qguard.services.permission_service import PermissionService
+        from nonebot_plugin_qguard.services.rule_engine import ModerationDecision
+        from nonebot_plugin_qguard.services.score_service import ScoreService
+    except Exception:
+        return None
+    ops = OneBotV11GroupOps(bot)
+    async with get_qguard_session() as session:
+        protected = await PermissionService(session).is_protected_from_auto_action(ops, int(group_id), int(event.user_id))
+        if protected:
+            return None
+
+    fake_event = SimpleNamespace(
+        group_id=int(group_id),
+        user_id=int(event.user_id),
+        message_id=int(getattr(event, "message_id", 0) or 0),
+    )
+    decision = ModerationDecision(
+        hit=True,
+        action=RuleAction.WARN.value,
+        reason=str(getattr(reply, "harassment_reason", "") or "骚扰智能客服"),
+        score_delta=delta,
+    )
+    return await ScoreService().apply_decision_score(ops, _bot_id(bot), fake_event, decision)
+
+
+def _bot_id(bot: Bot) -> int:
+    try:
+        return int(bot.self_id)
+    except (TypeError, ValueError):
+        return 0

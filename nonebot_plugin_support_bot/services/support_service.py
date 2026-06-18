@@ -6,6 +6,7 @@ from nonebot_plugin_support_bot.models import get_session
 from nonebot_plugin_support_bot.repositories.group_config_repo import SupportGroupConfigRepo
 from nonebot_plugin_support_bot.repositories.no_answer_repo import SupportNoAnswerRepo
 from nonebot_plugin_support_bot.repositories.session_repo import SupportSessionRepo
+from nonebot_plugin_support_bot.services.harassment_service import HarassmentService
 from nonebot_plugin_support_bot.services.integration_service import IntegrationService
 from nonebot_plugin_support_bot.services.intent_service import IntentService
 from nonebot_plugin_support_bot.services.schemas import SupportIntent, SupportReply
@@ -66,6 +67,8 @@ class SupportBotService:
             f"触发模式：{mode}\n"
             f"智能监听：{'开' if smart_listen else '关'}\n"
             "连续对话：按提问人隔离\n"
+            f"骚扰惩罚：{'开' if self.config.support_bot_harassment_enabled else '关'}"
+            f"（警告 {self.config.support_bot_harassment_warn_threshold}，积分 {self.config.support_bot_harassment_score_threshold}）\n"
             f"软件范围：{self.config.support_bot_software_name}\n"
             "知识范围：由 /知识 范围 控制\n"
             "技能列表：用 /知识 技能 查看"
@@ -117,13 +120,23 @@ class SupportBotService:
 
         intent = await self.intent_service.classify(question_text)
         if intent.reply_strategy == "reject":
-            return SupportReply(text="喵，我只回答 QInEX 映射软件相关问题。这个问题不在当前知识库范围内。", state="out_of_scope")
+            return await self._finalize_reply(
+                SupportReply(text="喵，我只回答 QInEX 映射软件相关问题。这个问题不在当前知识库范围内。", state="out_of_scope"),
+                raw_text,
+                group_id,
+                user_id,
+            )
         if intent.reply_strategy == "safe_no_answer":
             record_no = await self._record_no_answer(group_id, user_id, question_text, reason="privacy_or_license")
-            return SupportReply(
-                text="喵，当前知识库没有授权/账号处理流程，我不乱猜。也不要在群里发完整授权码、订单号、密钥或隐私截图。",
-                state="no_answer",
-                no_answer_id=record_no,
+            return await self._finalize_reply(
+                SupportReply(
+                    text="喵，当前知识库没有授权/账号处理流程，我不乱猜。也不要在群里发完整授权码、订单号、密钥或隐私截图。",
+                    state="no_answer",
+                    no_answer_id=record_no,
+                ),
+                raw_text,
+                group_id,
+                user_id,
             )
         if intent.reply_strategy == "ask_followup":
             await self._save_session(
@@ -135,11 +148,16 @@ class SupportBotService:
                 user_text=raw_text,
                 previous_context=previous_context,
             )
-            return SupportReply(
-                text=trim_reply(format_followup(intent), self.config.support_bot_max_reply_length),
-                state="collecting_issue",
+            return await self._finalize_reply(
+                SupportReply(
+                    text=trim_reply(format_followup(intent), self.config.support_bot_max_reply_length),
+                    state="collecting_issue",
+                ),
+                raw_text,
+                group_id,
+                user_id,
             )
-        return await self._ask_wiki(
+        reply = await self._ask_wiki(
             question_text,
             group_id=group_id,
             user_id=user_id,
@@ -147,6 +165,7 @@ class SupportBotService:
             user_text=raw_text,
             previous_context=previous_context,
         )
+        return await self._finalize_reply(reply, raw_text, group_id, user_id)
 
     async def should_handle_continuation(self, text: str, *, group_id: int | None, user_id: int) -> bool:
         stripped = text.strip()
@@ -235,6 +254,34 @@ class SupportBotService:
             state="no_answer",
             no_answer_id=record_no,
         )
+
+    async def _finalize_reply(
+        self,
+        reply: SupportReply,
+        raw_text: str,
+        group_id: int | None,
+        user_id: int,
+    ) -> SupportReply:
+        evaluation = await HarassmentService(self.config).record_if_needed(
+            raw_text,
+            group_id=group_id,
+            user_id=user_id,
+            reply_state=reply.state,
+        )
+        if not evaluation.hit:
+            return reply
+        reply.harassment_anger = evaluation.anger_score
+        reply.harassment_score_delta = evaluation.score_delta
+        reply.harassment_reason = evaluation.reason
+        notice = _format_harassment_notice(
+            evaluation.score_delta,
+            evaluation.anger_score,
+            evaluation.severity,
+            self.config.support_bot_harassment_warn_threshold,
+        )
+        if notice:
+            reply.text = trim_reply(f"{reply.text}\n{notice}", self.config.support_bot_max_reply_length)
+        return reply
 
     async def _save_session(
         self,
@@ -428,3 +475,13 @@ def _build_session_context(
         "references": references[:5],
         "turns": turns[-4:],
     }
+
+
+def _format_harassment_notice(score_delta: int, anger_score: int, severity: int, warn_threshold: int) -> str:
+    if score_delta > 0:
+        return "喵，忍耐值掉光了，这次我先记下，交给群管积分处理。"
+    if severity >= 3:
+        return "喵，骂客服我会记仇的，再来就要进群管积分了。"
+    if anger_score >= warn_threshold:
+        return "喵，别一直拿我开涮，我已经开始记仇了。"
+    return ""
