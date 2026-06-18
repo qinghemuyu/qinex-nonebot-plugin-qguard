@@ -13,10 +13,12 @@ from nonebot_plugin_group_wiki.services.import_service import ImportService
 from nonebot_plugin_group_wiki.services.rag_service import RAGService, _build_knowledge_context, _clean_chat_answer
 from nonebot_plugin_group_wiki.services.search_service import WikiSearchService, expand_search_query
 from nonebot_plugin_group_wiki.services.skill_registry import (
+    COMPONENT_CATEGORY,
     FAQ_CATEGORY,
     TERMS_CATEGORY,
     categories_for_skill_ids,
     faq_chunk_allowed_for_categories,
+    is_qinex_related,
     match_skill_id,
 )
 from nonebot_plugin_group_wiki.services.scope_service import WikiScopeService
@@ -30,15 +32,13 @@ class FakeAICore:
 
     async def chat(self, messages: list[dict], **kwargs) -> str:
         self.calls += 1
-        assert "猫娘售后诊断助手" in messages[0]["content"]
-        assert "不是复述知识库" in messages[0]["content"]
+        assert "猫娘客服" in messages[0]["content"]
         assert "上位机" in messages[0]["content"]
-        assert "先给最可能原因" in messages[0]["content"]
-        assert "不要使用 Markdown 格式" in messages[0]["content"]
+        assert "不要 Markdown" in messages[0]["content"]
+        assert "引用：文件名#小节" in messages[0]["content"]
         assert "知识库片段" in messages[-1]["content"]
-        assert "请直接给用户能照着操作的诊断回复" in messages[-1]["content"]
-        assert kwargs["temperature"] == 0.45
-        return "喵，优先判断是配置没有保存或输出模式没选对。\n一、先保存配置\n二、再检查输出模式\n引用：06_连点与压枪#压枪"
+        assert kwargs["temperature"] == 0.6
+        return "喵，优先判断是配置没有保存或输出模式没选对。先保存配置，再检查输出模式。\n引用：06_连点与压枪#压枪"
 
 
 @dataclass
@@ -70,20 +70,32 @@ def test_markdown_helpers_and_splitter() -> None:
 def test_qinex_skill_registry() -> None:
     categories, rejected = categories_for_skill_ids(["qinex_recoil_click", "qinex_p4", "qinex_activation"])
     term_categories, term_rejected = categories_for_skill_ids(["qinex_terms"])
+    mapping_categories, mapping_rejected = categories_for_skill_ids(["qinex_mapping"])
 
     assert "06_连点与压枪" in categories
     assert "08_P4单机版" in categories
     assert "11_激活与安全说明" in categories
     assert TERMS_CATEGORY in term_categories
+    assert COMPONENT_CATEGORY in mapping_categories
     assert FAQ_CATEGORY not in categories
     assert rejected == []
     assert term_rejected == []
+    assert mapping_rejected == []
     assert match_skill_id("P4 单机版怎么用手机配置") == "qinex_p4"
     assert match_skill_id("S3板子要怎么激活") == "qinex_activation"
     assert match_skill_id("最新版上位机有时候一卡一卡的") == "qinex_troubleshooting"
     assert match_skill_id("上位机是什么意思") == "qinex_terms"
     assert faq_chunk_allowed_for_categories("## 五、连点 / 压枪\n压枪怎么开", ["06_连点与压枪"])
     assert not faq_chunk_allowed_for_categories("## 七、投屏\n投屏怎么开", ["06_连点与压枪"])
+
+
+def test_qinex_related_uses_context_for_weak_mapping_terms() -> None:
+    assert is_qinex_related("按住WA再按D没反应")
+    assert is_qinex_related("WASD走位映射怎么设置")
+    assert is_qinex_related("右键开镜怎么配")
+    assert is_qinex_related("视角太飘怎么调")
+    assert not is_qinex_related("我的wasd键盘坏了怎么办")
+    assert not is_qinex_related("王者荣耀怎么走位")
 
 
 def test_clean_chat_answer_removes_markdown() -> None:
@@ -128,11 +140,15 @@ def test_expand_search_query_for_pc_client_jank() -> None:
 def test_expand_search_query_for_common_support_phrases() -> None:
     no_touch = expand_search_query("上位机保存了但是游戏里没有触点")
     launch = expand_search_query("配置面板空白打不开")
+    ads = expand_search_query("开镜灵敏度ADS开了但是右键不开镜")
+    layer = expand_search_query("按键层里为什么不能改摇杆视角")
 
     assert "保存配置" in no_touch
     assert "管理员权限" in no_touch
     assert "WebView2" in launch
     assert "完整解压" in launch
+    assert "开镜触点" in ads
+    assert "扩展层" in layer
 
 
 @pytest.mark.asyncio

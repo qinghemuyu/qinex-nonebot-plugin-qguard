@@ -104,14 +104,14 @@ class IntentService:
     @staticmethod
     def _missing_fields(issue_type: str) -> list[str]:
         if issue_type == "mapping_not_working":
-            return ["是按键、鼠标还是压枪没反应", "使用的是 S3、免硬件还是 P4", "是否管理员权限运行"]
+            return ["是按键、鼠标还是压枪没反应", "你用的是 S3、免硬件还是 P4"]
         if issue_type in {"launch_failed", "crash"}:
-            return ["QInEX 版本", "使用模式：S3 / 免硬件 / P4", "卡在哪一步或看到什么提示"]
+            return ["卡在哪一步或看到什么提示", "你用的是 S3、免硬件还是 P4"]
         if issue_type == "screenhub_usage":
-            return ["是 PC 投屏还是手机 APP", "画面问题还是控制问题", "当前连接方式"]
+            return ["是电脑投屏还是手机 APP", "是画面卡还是点不准"]
         if issue_type == "p4_usage":
-            return ["P4 卡在哪个页面", "手机是否出现触点", "是否用手机 APP 配置 P4"]
-        return ["使用的是哪个功能", "卡在哪一步", "当前看到的现象"]
+            return ["P4 现在卡在哪个页面", "手机上有没有出现触点"]
+        return ["你用的是哪个功能", "现在卡在哪一步"]
 
 
 def _get_skill_registry() -> ModuleType:

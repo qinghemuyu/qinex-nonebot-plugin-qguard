@@ -62,6 +62,10 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     pc_jank = await service.classify("最新版上位机有那种掉帧的感觉，有时候一卡一卡的")
     panel_blank = await service.classify("上位机配置面板空白打不开")
     no_touch = await service.classify("保存了但是游戏里没有触点")
+    wasd_component = await service.classify("按住WA再按D没反应")
+    ads_component = await service.classify("右键开镜怎么配")
+    generic_wasd = await service.classify("我的wasd键盘坏了怎么办")
+    generic_game = await service.classify("王者荣耀怎么走位")
     out_scope = await service.classify("Python 怎么安装依赖")
 
     assert log_intent.reply_strategy == "reject"
@@ -76,6 +80,12 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     assert panel_blank.issue_type == "launch_failed"
     assert no_touch.reply_strategy == "answer"
     assert no_touch.issue_type == "mapping_not_working"
+    assert wasd_component.reply_strategy == "answer"
+    assert wasd_component.issue_type == "mapping_not_working"
+    assert ads_component.reply_strategy == "answer"
+    assert ads_component.issue_type == "config_problem"
+    assert generic_wasd.reply_strategy == "reject"
+    assert generic_game.reply_strategy == "reject"
     assert out_scope.reply_strategy == "reject"
 
 

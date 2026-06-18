@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 FAQ_CATEGORY = "FAQ问答对"
 TERMS_CATEGORY = "12_术语别名与口语化问法"
+COMPONENT_CATEGORY = "13_映射组件诊断卡片"
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,20 +60,46 @@ WIKI_SKILLS: tuple[WikiSkill, ...] = (
     WikiSkill(
         skill_id="qinex_mapping",
         name="映射与配置面板",
-        categories=("04_配置面板-基础布键", "05_高级映射(开镜背包载具手势蓄力)", TERMS_CATEGORY, FAQ_CATEGORY),
+        categories=(
+            "04_配置面板-基础布键",
+            "05_高级映射(开镜背包载具手势蓄力)",
+            COMPONENT_CATEGORY,
+            TERMS_CATEGORY,
+            FAQ_CATEGORY,
+        ),
         keywords=(
             "布键",
             "映射",
             "按键",
             "鼠标",
             "摇杆",
+            "走位",
+            "wasd",
+            "方向键",
+            "同时按",
+            "组合键",
+            "斜向",
+            "对角",
+            "抵消",
+            "自定义按键",
+            "触点",
             "视角",
+            "视角滑动",
+            "鼠标轮盘",
             "配置文件",
             "开镜",
+            "开镜灵敏度",
+            "ads",
             "背包",
+            "多态交互",
+            "轻触",
+            "长按",
             "载具",
             "手势",
+            "手势滑动",
+            "按键层",
             "蓄力",
+            "蓄力瞄准",
             "上位机",
             "pc端",
             "电脑端",
@@ -224,7 +251,7 @@ def match_skill_id(text: str) -> str:
 
 def is_qinex_related(text: str) -> bool:
     normalized = text.strip().lower()
-    product_markers = (
+    strong_product_markers = (
         "qinex",
         "映射",
         "映射软件",
@@ -241,8 +268,93 @@ def is_qinex_related(text: str) -> bool:
         "s3",
         "adb",
         "键鼠",
+        "配置面板",
+        "布键",
+        "触点",
+        "输出模式",
+        "参考分辨率",
+        "自定义按键",
+        "视角滑动",
+        "鼠标轮盘",
+        "开镜灵敏度",
+        "多态交互",
+        "轻触",
+        "长按",
+        "手势滑动",
+        "按键层",
+        "蓄力瞄准",
     )
-    return any(marker in normalized for marker in product_markers) or match_skill_id(text) != "unknown"
+    if any(marker in normalized for marker in strong_product_markers):
+        return True
+    if _looks_like_mapping_component_question(normalized):
+        return True
+    skill_id = match_skill_id(text)
+    return skill_id not in {"unknown", "qinex_mapping"}
+
+
+def _looks_like_mapping_component_question(normalized: str) -> bool:
+    weak_mapping_markers = (
+        "摇杆",
+        "走位",
+        "wasd",
+        "方向键",
+        "鼠标",
+        "按键",
+        "右键",
+        "左键",
+        "开镜",
+        "视角",
+        "轮盘",
+        "背包",
+        "商店",
+        "地图",
+        "载具",
+        "手势",
+        "蓄力",
+        "多态",
+        "按键层",
+        "轻触",
+        "长按",
+        "ads",
+        "wa再",
+        "wd再",
+    )
+    component_context_markers = (
+        "按住",
+        "同时按",
+        "一起按",
+        "组合",
+        "斜向",
+        "对角",
+        "抵消",
+        "没反应",
+        "不触发",
+        "不生效",
+        "没用",
+        "游戏里",
+        "触点",
+        "映射",
+        "摆好",
+        "配置",
+        "设置",
+        "绑定",
+        "怎么配",
+        "怎么调",
+        "灵敏度",
+        "太飘",
+        "甩飞",
+        "点不准",
+        "切层",
+        "触发",
+        "开了",
+        "没效果",
+        "移动摇杆",
+        "自定义",
+        "一个方向",
+    )
+    return any(marker in normalized for marker in weak_mapping_markers) and any(
+        marker in normalized for marker in component_context_markers
+    )
 
 
 def faq_chunk_allowed_for_categories(chunk: str, allowed_categories: list[str]) -> bool:
