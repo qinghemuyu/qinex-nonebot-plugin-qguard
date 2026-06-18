@@ -21,4 +21,12 @@ if driver is not None:
 
 from .commands import root as root  # noqa: E402,F401
 
+if "nonebot_plugin_qguard.registry" in sys.modules:
+    try:
+        from .qguard_registry import register_with_qguard as _register_with_qguard
+
+        _register_with_qguard()
+    except Exception:
+        pass
+
 __all__ = ["GroupWikiService"]
