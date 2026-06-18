@@ -56,6 +56,7 @@ async def init_db() -> None:
         blacklist,
         card_lock,
         group_config,
+        group_plugin_config,
         member_profile,
         message_cache,
         rule,

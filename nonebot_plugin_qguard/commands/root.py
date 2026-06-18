@@ -7,6 +7,7 @@ from nonebot_plugin_qguard.qguard_registry import get_qguard_descriptor
 from nonebot_plugin_qguard.registry import (
     RegistryContext,
     build_help_text,
+    build_help_text_for_context,
     build_plugin_help_text,
     build_plugin_list_text,
     build_plugin_status_text,
@@ -15,6 +16,7 @@ from nonebot_plugin_qguard.registry import (
 )
 from nonebot_plugin_qguard.services.permission_service import PermissionService
 from nonebot_plugin_qguard.services.group_config_service import GroupConfigService
+from nonebot_plugin_qguard.services.plugin_center_service import PluginCenterService
 from nonebot_plugin_qguard.services.auto_recall_service import (
     deserialize_auto_recall_categories,
     format_auto_recall_categories,
@@ -40,7 +42,8 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
     if args[0] == "帮助":
         role = await _get_operator_role(bot, event)
         query = " ".join(args[1:])
-        await finish_reply(root_matcher, bot, event, build_help_text(role, query=query))
+        context = RegistryContext(group_id=event.group_id, user_id=event.user_id, role=role)
+        await finish_reply(root_matcher, bot, event, await build_help_text_for_context(context, query=query))
     if args[0] == "状态":
         config = await service.status(event.group_id)
         await finish_reply(root_matcher, bot, event, format_group_status(config))
@@ -88,6 +91,7 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
 
 async def _handle_plugin_center(bot: Bot, event: GroupMessageEvent, args: list[str]) -> None:
     role = await _get_operator_role(bot, event)
+    service = PluginCenterService()
     if len(args) == 1:
         await finish_reply(root_matcher, bot, event, build_plugin_list_text(role))
 
@@ -101,14 +105,39 @@ async def _handle_plugin_center(bot: Bot, event: GroupMessageEvent, args: list[s
         if role < QGuardRole.TRUSTED:
             await finish_reply(root_matcher, bot, event, "权限不足。")
         context = RegistryContext(group_id=event.group_id, user_id=event.user_id, role=role)
+        await service.record_status_query(event.group_id, event.user_id, args[2] if len(args) >= 3 else None)
         if len(args) >= 3:
             await finish_reply(root_matcher, bot, event, await build_single_plugin_status_text(args[2], context))
         await finish_reply(root_matcher, bot, event, await build_plugin_status_text(context))
 
-    if action in {"开", "关", "权限"}:
-        await finish_reply(root_matcher, bot, event, "插件中心开关和权限覆盖还在下一阶段，本阶段先支持帮助和状态。")
+    if action in {"开", "关"}:
+        if role < QGuardRole.GROUP_OWNER:
+            await finish_reply(root_matcher, bot, event, "权限不足。")
+        if len(args) < 3:
+            await finish_reply(root_matcher, bot, event, "用法：/管 插件 开|关 插件ID")
+        result = await service.set_plugin_enabled(
+            group_id=event.group_id,
+            operator_id=event.user_id,
+            plugin_id=args[2],
+            enabled=action == "开",
+        )
+        await finish_reply(root_matcher, bot, event, result.message)
 
-    await finish_reply(root_matcher, bot, event, "用法：/管 插件，/管 插件 状态，/管 插件 帮助 插件ID")
+    if action == "权限":
+        if role < QGuardRole.SUPER_ADMIN:
+            await finish_reply(root_matcher, bot, event, "权限不足。")
+        if len(args) < 5:
+            await finish_reply(root_matcher, bot, event, "用法：/管 插件 权限 插件ID 命令 角色")
+        result = await service.set_plugin_permission(
+            group_id=event.group_id,
+            operator_id=event.user_id,
+            plugin_id=args[2],
+            selector=" ".join(args[3:-1]),
+            role_text=args[-1],
+        )
+        await finish_reply(root_matcher, bot, event, result.message)
+
+    await finish_reply(root_matcher, bot, event, "用法：/管 插件，/管 插件 状态，/管 插件 帮助 插件ID，/管 插件 开|关 插件ID")
 
 
 async def _get_operator_role(bot: Bot, event: GroupMessageEvent) -> QGuardRole:

@@ -71,6 +71,9 @@ src/qinex/plugins/nonebot_plugin_qguard
 /管 插件 状态
 /管 插件 状态 插件ID
 /管 插件 帮助 插件ID
+/管 插件 开 插件ID
+/管 插件 关 插件ID
+/管 插件 权限 插件ID 命令 角色
 /管 开启
 /管 关闭
 /管 自动撤回 90s
@@ -210,11 +213,14 @@ QGuard 提供轻量插件注册中心，已加载的 AI Core、GroupWiki、QInEX
 - `/管 插件`
 - `/管 插件 状态`
 - `/管 插件 帮助 qinex_answer`
+- `/管 插件 开 qinex_answer`
+- `/管 插件 关 qinex_answer`
+- `/管 插件 权限 qinex_answer /客服 群管理员`
 - `/管 帮助 AI`
 - `/管 帮助 知识库`
 - `/管 帮助 全部`
 
-当前阶段先统一帮助和状态页；插件级开关、权限覆盖会在后续阶段接入。
+插件中心开关只有插件提供适配器时才会真正修改执行层配置；当前已支持 QGuard 和 QInEX AnswerBot。AI Core、GroupWiki 暂时只注册帮助和状态。
 
 ## 自动撤回说明
 

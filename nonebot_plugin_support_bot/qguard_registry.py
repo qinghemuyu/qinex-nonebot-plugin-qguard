@@ -32,6 +32,18 @@ async def _status_provider(context: RegistryContext) -> str:
     return "，".join(parts[:5]) or "已加载"
 
 
+async def _enabled_provider(context: RegistryContext) -> bool | None:
+    if context.group_id is None:
+        return None
+    return await SupportBotService(load_config()).is_group_enabled(context.group_id)
+
+
+async def _enable_setter(context: RegistryContext, enabled: bool) -> str:
+    if context.group_id is None:
+        return "这个命令只能在群里使用。"
+    return await SupportBotService(load_config()).set_enabled(context.group_id, enabled, context.user_id)
+
+
 def get_qguard_descriptor() -> PluginDescriptor:
     return PluginDescriptor(
         plugin_id="qinex_answer",
@@ -52,6 +64,8 @@ def get_qguard_descriptor() -> PluginDescriptor:
         ),
         default_enabled=True,
         status_provider=_status_provider,
+        group_enabled_provider=_enabled_provider,
+        group_enable_setter=_enable_setter,
     )
 
 

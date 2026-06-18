@@ -33,6 +33,19 @@ async def _status_provider(context: RegistryContext) -> str:
     return f"群管 {state}，自动撤回 {auto_recall}"
 
 
+async def _enabled_provider(context: RegistryContext) -> bool | None:
+    if context.group_id is None:
+        return None
+    config = await GroupConfigService().status(context.group_id)
+    return config.enabled
+
+
+async def _enable_setter(context: RegistryContext, enabled: bool) -> str:
+    if context.group_id is None or context.user_id is None:
+        return "这个命令只能在群里使用。"
+    return (await GroupConfigService().set_enabled(context.group_id, context.user_id, enabled)).message
+
+
 def get_qguard_descriptor() -> PluginDescriptor:
     commands = (
         _cmd("/管 帮助", "查看统一帮助", QGuardRole.MEMBER),
@@ -42,6 +55,9 @@ def get_qguard_descriptor() -> PluginDescriptor:
         _cmd("/管 插件 状态", "查看插件中心状态", QGuardRole.TRUSTED),
         _cmd("/管 插件 状态 插件ID", "查看单个插件状态", QGuardRole.TRUSTED),
         _cmd("/管 插件 帮助 插件ID", "查看单个插件帮助", QGuardRole.MEMBER),
+        _cmd("/管 插件 开 插件ID", "通过插件中心开启插件", QGuardRole.GROUP_OWNER, danger_level=1),
+        _cmd("/管 插件 关 插件ID", "通过插件中心关闭插件", QGuardRole.GROUP_OWNER, danger_level=1),
+        _cmd("/管 插件 权限 插件ID 命令 角色", "覆盖本群插件命令展示权限", QGuardRole.SUPER_ADMIN, danger_level=2),
         _cmd("/管 开启", "开启本群群管", QGuardRole.GROUP_ADMIN, danger_level=1),
         _cmd("/管 关闭", "关闭本群群管", QGuardRole.GROUP_ADMIN, danger_level=1),
         _cmd("/管 自动撤回 90s", "设置机器人指令回复撤回时间", QGuardRole.GROUP_ADMIN, danger_level=1),
@@ -132,4 +148,6 @@ def get_qguard_descriptor() -> PluginDescriptor:
         commands=commands,
         default_enabled=True,
         status_provider=_status_provider,
+        group_enabled_provider=_enabled_provider,
+        group_enable_setter=_enable_setter,
     )

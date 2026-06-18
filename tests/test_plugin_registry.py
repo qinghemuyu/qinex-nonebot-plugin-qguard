@@ -3,11 +3,15 @@ from nonebot_plugin_group_wiki.qguard_registry import get_qguard_descriptor as g
 from nonebot_plugin_qguard.enums import QGuardRole
 from nonebot_plugin_qguard.qguard_registry import get_qguard_descriptor
 from nonebot_plugin_qguard.registry import (
+    RegistryContext,
+    build_help_text_for_context,
     build_help_text,
     build_plugin_help_text,
     clear_registry,
     register_plugin,
 )
+from nonebot_plugin_qguard.services.plugin_center_service import PluginCenterService
+from nonebot_plugin_support_bot.models import init_db as init_support_db
 from nonebot_plugin_support_bot.qguard_registry import get_qguard_descriptor as get_support_descriptor
 
 
@@ -52,3 +56,48 @@ def test_registry_plugin_detail_help() -> None:
     assert "QInEX 智能问答" in detail
     assert "/求助 问题描述" in detail
     assert "/客服 开启" in detail
+
+
+async def test_plugin_permission_override_affects_dynamic_help() -> None:
+    _register_test_descriptors()
+    group_id = 880100001
+
+    result = await PluginCenterService().set_plugin_permission(
+        group_id=group_id,
+        operator_id=1348984838,
+        plugin_id="qinex_answer",
+        selector="/客服",
+        role_text="群主",
+    )
+
+    assert result.success
+    admin_help = await build_help_text_for_context(
+        RegistryContext(group_id=group_id, user_id=1, role=QGuardRole.GROUP_ADMIN),
+        query="客服",
+    )
+    owner_help = await build_help_text_for_context(
+        RegistryContext(group_id=group_id, user_id=1, role=QGuardRole.GROUP_OWNER),
+        query="客服",
+    )
+    assert "/客服 状态" not in admin_help
+    assert "/客服 状态" in owner_help
+
+
+async def test_plugin_center_can_toggle_support_bot_and_hide_help() -> None:
+    _register_test_descriptors()
+    await init_support_db()
+    group_id = 880100002
+
+    result = await PluginCenterService().set_plugin_enabled(
+        group_id=group_id,
+        operator_id=1348984838,
+        plugin_id="qinex_answer",
+        enabled=False,
+    )
+
+    assert result.success
+    help_text = await build_help_text_for_context(
+        RegistryContext(group_id=group_id, user_id=1, role=QGuardRole.GROUP_ADMIN),
+        query="客服",
+    )
+    assert "/客服 状态" not in help_text

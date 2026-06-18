@@ -24,6 +24,8 @@ class RegistryContext:
 
 StatusProvider = Callable[[RegistryContext], Awaitable[str] | str]
 HealthCheck = Callable[[RegistryContext], Awaitable[bool] | bool]
+GroupEnabledProvider = Callable[[RegistryContext], Awaitable[bool | None] | bool | None]
+GroupEnableSetter = Callable[[RegistryContext, bool], Awaitable[str] | str]
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,8 @@ class PluginDescriptor:
     show_in_help: bool = True
     status_provider: StatusProvider | None = None
     health_check: HealthCheck | None = None
+    group_enabled_provider: GroupEnabledProvider | None = None
+    group_enable_setter: GroupEnableSetter | None = None
 
 
 _REGISTRY: dict[str, PluginDescriptor] = {}
@@ -122,12 +126,14 @@ def visible_commands(
     role: QGuardRole,
     *,
     include_all: bool = False,
+    permission_overrides: dict[str, QGuardRole] | None = None,
 ) -> list[CommandDescriptor]:
     commands = []
     for command in descriptor.commands:
         if not include_all and not command.show_in_help:
             continue
-        if include_all or command.required_role <= role:
+        required_role = _overridden_role(command, permission_overrides)
+        if include_all or required_role <= role:
             commands.append(command)
     return commands
 
@@ -211,6 +217,59 @@ async def build_plugin_status_text(context: RegistryContext) -> str:
     return "\n".join(lines)
 
 
+async def build_help_text_for_context(
+    context: RegistryContext,
+    *,
+    query: str = "",
+    include_all: bool = False,
+) -> str:
+    collect_loaded_plugin_descriptors()
+    normalized_query = _normalize_query(query)
+    if normalized_query in {"全部", "all"}:
+        include_all = True
+        normalized_query = ""
+
+    configs = {}
+    if context.group_id is not None:
+        try:
+            from nonebot_plugin_qguard.services.plugin_center_service import PluginCenterService
+
+            configs = await PluginCenterService().configs_for_group(context.group_id)
+        except Exception:
+            configs = {}
+
+    plugins = _filtered_plugins(normalized_query)
+    lines = ["QGuard 插件中心"]
+    if include_all:
+        lines[0] += "（全部命令）"
+    lines.append(f"当前视图：{ROLE_LABELS.get(context.role, str(context.role))}")
+
+    any_command = False
+    for plugin in plugins:
+        config = configs.get(plugin.plugin_id)
+        if not include_all and config is not None and config.enabled is False:
+            continue
+        if not include_all and not plugin.show_in_help:
+            continue
+        overrides = _permission_overrides_from_config(config)
+        commands = visible_commands(plugin, context.role, include_all=include_all, permission_overrides=overrides)
+        if not commands:
+            continue
+        any_command = True
+        title = plugin.display_name
+        if config is not None and config.enabled is False:
+            title += "（插件中心已关闭）"
+        lines.extend(("", f"{title}："))
+        for command in commands:
+            lines.append(command.usage)
+
+    if not any_command:
+        lines.extend(("", "没有找到可展示的命令。"))
+    elif not include_all:
+        lines.extend(("", "更多：/管 帮助 全部，/管 插件"))
+    return "\n".join(lines)
+
+
 async def build_single_plugin_status_text(plugin_id: str, context: RegistryContext) -> str:
     plugin = get_plugin(plugin_id)
     if plugin is None:
@@ -235,6 +294,26 @@ async def _resolve_provider(provider: StatusProvider, context: RegistryContext) 
     return str(result).strip() or "已注册"
 
 
+async def resolve_group_enabled(plugin: PluginDescriptor, context: RegistryContext) -> bool | None:
+    if plugin.group_enabled_provider is None:
+        return None
+    result = plugin.group_enabled_provider(context)
+    if inspect.isawaitable(result):
+        result = await asyncio.wait_for(result, timeout=3)
+    if result is None:
+        return None
+    return bool(result)
+
+
+async def set_group_enabled(plugin: PluginDescriptor, context: RegistryContext, enabled: bool) -> str:
+    if plugin.group_enable_setter is None:
+        raise NotImplementedError("plugin does not support group enable setter")
+    result = plugin.group_enable_setter(context, enabled)
+    if inspect.isawaitable(result):
+        result = await asyncio.wait_for(result, timeout=5)
+    return str(result).strip()
+
+
 def _filtered_plugins(query: str) -> tuple[PluginDescriptor, ...]:
     plugins = get_registered_plugins(discover=False)
     if not query:
@@ -252,3 +331,57 @@ def _filtered_plugins(query: str) -> tuple[PluginDescriptor, ...]:
 
 def _normalize_query(query: str) -> str:
     return query.strip().lower()
+
+
+def parse_registry_role(text: str) -> QGuardRole:
+    normalized = text.strip().lower()
+    aliases = {
+        "0": QGuardRole.MEMBER,
+        "member": QGuardRole.MEMBER,
+        "普通": QGuardRole.MEMBER,
+        "普通成员": QGuardRole.MEMBER,
+        "成员": QGuardRole.MEMBER,
+        "1": QGuardRole.TRUSTED,
+        "trusted": QGuardRole.TRUSTED,
+        "可信": QGuardRole.TRUSTED,
+        "可信用户": QGuardRole.TRUSTED,
+        "信任": QGuardRole.TRUSTED,
+        "2": QGuardRole.MINI_ADMIN,
+        "mini": QGuardRole.MINI_ADMIN,
+        "mini_admin": QGuardRole.MINI_ADMIN,
+        "小管理": QGuardRole.MINI_ADMIN,
+        "小管": QGuardRole.MINI_ADMIN,
+        "3": QGuardRole.GROUP_ADMIN,
+        "group_admin": QGuardRole.GROUP_ADMIN,
+        "admin": QGuardRole.GROUP_ADMIN,
+        "管理员": QGuardRole.GROUP_ADMIN,
+        "群管理员": QGuardRole.GROUP_ADMIN,
+        "4": QGuardRole.GROUP_OWNER,
+        "group_owner": QGuardRole.GROUP_OWNER,
+        "owner": QGuardRole.GROUP_OWNER,
+        "群主": QGuardRole.GROUP_OWNER,
+        "5": QGuardRole.SUPER_ADMIN,
+        "super_admin": QGuardRole.SUPER_ADMIN,
+        "super": QGuardRole.SUPER_ADMIN,
+        "主人": QGuardRole.SUPER_ADMIN,
+        "超级管理员": QGuardRole.SUPER_ADMIN,
+    }
+    if normalized not in aliases:
+        raise ValueError("角色只支持：普通、可信、小管理、群管理员、群主、超级管理员。")
+    return aliases[normalized]
+
+
+def _overridden_role(command: CommandDescriptor, overrides: dict[str, QGuardRole] | None) -> QGuardRole:
+    if not overrides:
+        return command.required_role
+    return overrides.get(command.usage, overrides.get(command.command, command.required_role))
+
+
+def _permission_overrides_from_config(config) -> dict[str, QGuardRole]:
+    if config is None:
+        return {}
+    try:
+        raw = config.permission_overrides
+    except AttributeError:
+        return {}
+    return {key: QGuardRole(value) for key, value in raw.items()}
