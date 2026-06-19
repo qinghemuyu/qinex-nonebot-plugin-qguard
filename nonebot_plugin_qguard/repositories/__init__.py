@@ -2,6 +2,7 @@ from .audit_log_repo import AuditLogRepo
 from .blacklist_repo import BlacklistRepo
 from .card_lock_repo import CardLockRepo
 from .group_config_repo import GroupConfigRepo
+from .member_cleanup_notice_repo import MemberCleanupNoticeRepo
 from .member_repo import MemberRepo
 from .message_cache_repo import MessageCacheRepo
 from .rule_repo import RuleRepo
@@ -13,6 +14,7 @@ __all__ = [
     "BlacklistRepo",
     "CardLockRepo",
     "GroupConfigRepo",
+    "MemberCleanupNoticeRepo",
     "MemberRepo",
     "MessageCacheRepo",
     "RuleRepo",

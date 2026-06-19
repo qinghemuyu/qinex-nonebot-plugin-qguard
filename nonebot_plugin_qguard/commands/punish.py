@@ -3,6 +3,7 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 
 from nonebot_plugin_qguard.constants import DEFAULT_REASON
 from nonebot_plugin_qguard.enums import QGuardRole
+from nonebot_plugin_qguard.services.bulk_recall_service import BulkRecallService
 from nonebot_plugin_qguard.services.punishment_service import PunishmentService
 from nonebot_plugin_qguard.utils.message_parser import get_reply_message_id, parse_target
 from nonebot_plugin_qguard.utils.timeparse import parse_duration
@@ -21,7 +22,7 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         bot,
         event,
         _required_role(args[0]),
-        command_selector=_command_selector(args[0]),
+        command_selector=_command_selector(args),
     )
     if denied:
         await finish_reply(punish_matcher, bot, event, denied)
@@ -29,6 +30,19 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
     service = PunishmentService()
 
     if args[0] == "撤回":
+        if len(args) >= 2:
+            try:
+                count = int(args[1])
+            except ValueError:
+                await finish_reply(punish_matcher, bot, event, "用法：/管 撤回 100，或回复消息后发送 /管 撤回。")
+            result = await BulkRecallService().recall_recent(
+                ops,
+                group_id=event.group_id,
+                operator_id=event.user_id,
+                command_message_id=event.message_id,
+                count=count,
+            )
+            await finish_reply(punish_matcher, bot, event, result.message)
         message_id = get_reply_message_id(event)
         if message_id is None:
             await finish_reply(punish_matcher, bot, event, "请回复需要撤回的消息后再发送 /管 撤回。")
@@ -90,7 +104,10 @@ def _required_role(action: str) -> QGuardRole:
     return QGuardRole.GROUP_ADMIN
 
 
-def _command_selector(action: str) -> str:
+def _command_selector(args: list[str]) -> str:
+    action = args[0]
+    if action == "撤回" and len(args) >= 2 and args[1].isdigit():
+        return "/管 撤回 数量"
     selectors = {
         "禁": "/管 禁 @用户 10m 原因",
         "解禁": "/管 解禁 @用户",

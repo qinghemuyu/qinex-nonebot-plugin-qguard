@@ -20,6 +20,7 @@ from .commands import blacklist as blacklist  # noqa: E402,F401
 from .commands import card as card  # noqa: E402,F401
 from .commands import card_lock as card_lock  # noqa: E402,F401
 from .commands import group_setting as group_setting  # noqa: E402,F401
+from .commands import inactive_cleanup as inactive_cleanup  # noqa: E402,F401
 from .commands import join_review as join_review  # noqa: E402,F401
 from .commands import member_role as member_role  # noqa: E402,F401
 from .commands import message_query as message_query  # noqa: E402,F401

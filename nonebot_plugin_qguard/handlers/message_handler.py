@@ -7,6 +7,7 @@ from nonebot_plugin_qguard.config import load_config
 from nonebot_plugin_qguard.enums import AuditAction, AuditResult, RuleAction
 from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.repositories.audit_log_repo import AuditLogRepo
+from nonebot_plugin_qguard.repositories.member_repo import MemberRepo
 from nonebot_plugin_qguard.services.card_lock_service import CardLockService
 from nonebot_plugin_qguard.services.message_cache_service import MessageCacheService
 from nonebot_plugin_qguard.services.newbie_protection_service import NewbieProtectionService
@@ -24,6 +25,11 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
         await MessageCacheService().cache_group_message(event)
     except Exception as exc:
         logger.warning("QGuard message cache failed: {}", exc)
+
+    try:
+        await _touch_member_active(event)
+    except Exception as exc:
+        logger.warning("QGuard member active touch failed: {}", exc)
 
     newbie_handled = False
     try:
@@ -168,6 +174,12 @@ def _bot_id(bot: Bot) -> int:
         return int(bot.self_id)
     except (TypeError, ValueError):
         return 0
+
+
+async def _touch_member_active(event: GroupMessageEvent) -> None:
+    async with get_session() as session:
+        await MemberRepo(session).touch_active(event.group_id, event.user_id)
+        await session.commit()
 
 
 def _score_metadata(score_result: ScoreResult) -> dict[str, object]:

@@ -64,3 +64,7 @@ class MemberRepo:
         profile.last_active_at = datetime.utcnow()
         await self.session.flush()
         return profile
+
+    async def list_by_group(self, group_id: int) -> list[MemberProfile]:
+        result = await self.session.scalars(select(MemberProfile).where(MemberProfile.group_id == group_id))
+        return list(result)

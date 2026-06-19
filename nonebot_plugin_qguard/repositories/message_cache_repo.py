@@ -46,6 +46,19 @@ class MessageCacheRepo:
         )
         return list(result)
 
+    async def latest_in_group(
+        self,
+        group_id: int,
+        *,
+        limit: int = 100,
+        exclude_message_ids: set[int] | None = None,
+    ) -> list[MessageCache]:
+        stmt = select(MessageCache).where(MessageCache.group_id == group_id)
+        if exclude_message_ids:
+            stmt = stmt.where(~MessageCache.message_id.in_(exclude_message_ids))
+        result = await self.session.scalars(stmt.order_by(MessageCache.created_at.desc()).limit(limit))
+        return list(result)
+
     async def list_group_messages(
         self,
         group_id: int,

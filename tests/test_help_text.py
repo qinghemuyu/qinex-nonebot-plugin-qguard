@@ -26,6 +26,10 @@ def test_help_text_mentions_rule_commands() -> None:
     assert "/管 自动撤回 90s" in HELP_TEXT
     assert "/管 自动撤回 0" in HELP_TEXT
     assert "/管 自动撤回 分类 指令|聊天|全部|关闭" in HELP_TEXT
+    assert "/管 自动清理 状态" in HELP_TEXT
+    assert "/管 自动清理 提醒 30d 60d" in HELP_TEXT
+    assert "/管 自动清理 踢出 90d" in HELP_TEXT
+    assert "/管 撤回 数量" in HELP_TEXT
     assert "/管 积分 @用户" in HELP_TEXT
     assert "/管 积分 清零 @用户" in HELP_TEXT
     assert "/管 白名单 添加 @用户 原因" in HELP_TEXT

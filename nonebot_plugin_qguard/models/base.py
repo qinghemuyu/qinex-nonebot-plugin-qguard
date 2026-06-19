@@ -57,6 +57,7 @@ async def init_db() -> None:
         card_lock,
         group_config,
         group_plugin_config,
+        member_cleanup_notice,
         member_profile,
         message_cache,
         rule,
@@ -170,6 +171,36 @@ async def _migrate_sqlite_schema(conn: AsyncConnection) -> None:
         conn,
         "group_config",
         "last_auto_patrol_at",
+        "DATETIME NULL",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "group_config",
+        "auto_cleanup_enabled",
+        "BOOLEAN NOT NULL DEFAULT 0",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "group_config",
+        "auto_cleanup_interval_seconds",
+        "INTEGER NOT NULL DEFAULT 86400",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "group_config",
+        "auto_cleanup_reminder_days",
+        "TEXT NOT NULL DEFAULT '30,60'",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "group_config",
+        "auto_cleanup_kick_days",
+        "INTEGER NOT NULL DEFAULT 90",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "group_config",
+        "last_auto_cleanup_at",
         "DATETIME NULL",
     )
     await _add_sqlite_column_if_missing(

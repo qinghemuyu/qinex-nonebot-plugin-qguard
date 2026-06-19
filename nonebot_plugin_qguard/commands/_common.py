@@ -85,7 +85,10 @@ def build_qguard_command_selector(args: list[str]) -> str:
             tokens.append(args[1])
         return " ".join(tokens)
 
-    if args[0] in {"自动撤回", "自动巡检", "规则", "黑名单", "白名单", "新人保护", "名片锁全群", "群名", "群名锁", "匿名", "匿名锁", "巡检"}:
+    if args[0] == "撤回" and len(args) >= 2 and args[1].isdigit():
+        return "/管 撤回 数量"
+
+    if args[0] in {"自动撤回", "自动巡检", "自动清理", "规则", "黑名单", "白名单", "新人保护", "名片锁全群", "群名", "群名锁", "匿名", "匿名锁", "巡检"}:
         if len(args) >= 2:
             tokens.append(args[1])
         return " ".join(tokens)

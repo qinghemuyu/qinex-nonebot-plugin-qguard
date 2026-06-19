@@ -30,7 +30,8 @@ async def _status_provider(context: RegistryContext) -> str:
     config = await GroupConfigService().status(context.group_id)
     state = "开" if config.enabled else "关"
     auto_recall = "关" if config.auto_delete_reply_seconds <= 0 else f"{config.auto_delete_reply_seconds}s"
-    return f"群管 {state}，自动撤回 {auto_recall}"
+    auto_cleanup = "开" if config.auto_cleanup_enabled else "关"
+    return f"群管 {state}，自动撤回 {auto_recall}，自动清理 {auto_cleanup}"
 
 
 async def _enabled_provider(context: RegistryContext) -> bool | None:
@@ -63,12 +64,20 @@ def get_qguard_descriptor() -> PluginDescriptor:
         _cmd("/管 自动撤回 90s", "设置机器人指令回复撤回时间", QGuardRole.GROUP_ADMIN, danger_level=1),
         _cmd("/管 自动撤回 0", "关闭自动撤回", QGuardRole.GROUP_ADMIN, danger_level=1),
         _cmd("/管 自动撤回 分类 指令|聊天|全部|关闭", "设置自动撤回消息分类", QGuardRole.GROUP_ADMIN, danger_level=1),
+        _cmd("/管 自动清理 状态", "查看长期未活跃自动清理配置", QGuardRole.GROUP_ADMIN),
+        _cmd("/管 自动清理 开", "开启长期未活跃自动清理", QGuardRole.GROUP_ADMIN, danger_level=2),
+        _cmd("/管 自动清理 关", "关闭长期未活跃自动清理", QGuardRole.GROUP_ADMIN, danger_level=1),
+        _cmd("/管 自动清理 提醒 30d 60d", "设置未活跃私聊提醒档位", QGuardRole.GROUP_ADMIN, danger_level=1),
+        _cmd("/管 自动清理 踢出 90d", "设置未活跃踢出阈值", QGuardRole.GROUP_ADMIN, danger_level=2),
+        _cmd("/管 自动清理 间隔 1d", "设置自动清理扫描间隔", QGuardRole.GROUP_ADMIN, danger_level=1),
+        _cmd("/管 自动清理 执行", "立即执行一次长期未活跃扫描", QGuardRole.GROUP_ADMIN, danger_level=2),
         _cmd("/管 禁 @用户 10m 原因", "禁言成员", QGuardRole.MINI_ADMIN, danger_level=2),
         _cmd("/管 解禁 @用户", "解除禁言", QGuardRole.MINI_ADMIN, danger_level=2),
         _cmd("/管 踢 @用户 原因", "踢出成员", QGuardRole.GROUP_ADMIN, danger_level=3),
         _cmd("/管 踢黑 @用户 原因", "踢出并加入黑名单", QGuardRole.GROUP_OWNER, danger_level=3),
         _cmd("/管 警告 @用户 原因", "警告成员并累计积分", QGuardRole.MINI_ADMIN, danger_level=1),
         _cmd("/管 撤回", "撤回被回复的消息", QGuardRole.MINI_ADMIN, danger_level=1),
+        _cmd("/管 撤回 数量", "从当前指令向上批量撤回消息", QGuardRole.MINI_ADMIN, danger_level=2),
         _cmd("/管 查 @用户", "查询成员信息", QGuardRole.TRUSTED),
         _cmd("/管 积分 @用户", "查询违规积分", QGuardRole.TRUSTED),
         _cmd("/管 积分 清零 @用户", "清零违规积分", QGuardRole.GROUP_ADMIN, danger_level=1),

@@ -5,6 +5,10 @@ from nonebot_plugin_qguard.services.auto_recall_service import (
     deserialize_auto_recall_categories,
     format_auto_recall_categories,
 )
+from nonebot_plugin_qguard.services.inactive_cleanup_service import (
+    deserialize_cleanup_reminder_days,
+    format_cleanup_reminder_days,
+)
 
 
 def format_group_status(config: GroupConfig) -> str:
@@ -22,6 +26,12 @@ def format_group_status(config: GroupConfig) -> str:
     auto_patrol_text = (
         f"是（{config.auto_patrol_interval_seconds} 秒）" if config.auto_patrol_enabled else "否"
     )
+    auto_cleanup_text = (
+        f"是（提醒 {format_cleanup_reminder_days(deserialize_cleanup_reminder_days(config.auto_cleanup_reminder_days))}，"
+        f"{config.auto_cleanup_kick_days} 天踢出，{config.auto_cleanup_interval_seconds} 秒扫描）"
+        if config.auto_cleanup_enabled
+        else "否"
+    )
     return (
         "QGuard 状态\n"
         f"插件启用：{'是' if config.enabled else '否'}\n"
@@ -29,6 +39,7 @@ def format_group_status(config: GroupConfig) -> str:
         f"群名锁：{group_name_lock_text}\n"
         f"匿名锁：{anonymous_lock_text}\n"
         f"自动巡检：{auto_patrol_text}\n"
+        f"自动清理：{auto_cleanup_text}\n"
         f"入群审核：{'是' if config.join_review_enabled else '否'}（暗号{join_answer_text}）\n"
         f"新人保护：{'是' if config.new_member_protection_enabled else '否'}（{config.newbie_protection_seconds} 秒，拦截{newbie_rule_text}）\n"
         f"自动审核：{'是' if config.auto_moderation_enabled else '否'}\n"
