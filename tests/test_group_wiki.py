@@ -85,6 +85,7 @@ def test_qinex_skill_registry() -> None:
     assert match_skill_id("S3板子要怎么激活") == "qinex_activation"
     assert match_skill_id("最新版上位机有时候一卡一卡的") == "qinex_troubleshooting"
     assert match_skill_id("上位机是什么意思") == "qinex_terms"
+    assert match_skill_id("校准映射之后 部分映射按键失效") in {"qinex_mapping", "qinex_troubleshooting"}
     assert faq_chunk_allowed_for_categories("## 五、连点 / 压枪\n压枪怎么开", ["06_连点与压枪"])
     assert not faq_chunk_allowed_for_categories("## 七、投屏\n投屏怎么开", ["06_连点与压枪"])
 
@@ -94,6 +95,7 @@ def test_qinex_related_uses_context_for_weak_mapping_terms() -> None:
     assert is_qinex_related("WASD走位映射怎么设置")
     assert is_qinex_related("右键开镜怎么配")
     assert is_qinex_related("视角太飘怎么调")
+    assert is_qinex_related("校准映射之后 部分映射按键失效")
     assert not is_qinex_related("我的wasd键盘坏了怎么办")
     assert not is_qinex_related("王者荣耀怎么走位")
 
@@ -142,6 +144,7 @@ def test_expand_search_query_for_common_support_phrases() -> None:
     launch = expand_search_query("配置面板空白打不开")
     ads = expand_search_query("开镜灵敏度ADS开了但是右键不开镜")
     layer = expand_search_query("按键层里为什么不能改摇杆视角")
+    calibration = expand_search_query("校准映射之后 部分映射按键失效")
 
     assert "保存配置" in no_touch
     assert "管理员权限" in no_touch
@@ -149,6 +152,10 @@ def test_expand_search_query_for_common_support_phrases() -> None:
     assert "完整解压" in launch
     assert "开镜触点" in ads
     assert "扩展层" in layer
+    assert "触摸校准" in calibration
+    assert "参考分辨率" in calibration
+    assert "黑边" in calibration
+    assert "坐标偏移" in calibration
 
 
 @pytest.mark.asyncio
