@@ -5,6 +5,7 @@ import pytest
 
 from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.models.message_cache import MessageCache
+from nonebot_plugin_qguard.repositories.member_cleanup_notice_repo import MemberCleanupNoticeRepo
 from nonebot_plugin_qguard.repositories.message_cache_repo import MessageCacheRepo
 from nonebot_plugin_qguard.services.bulk_recall_service import BulkRecallService
 from nonebot_plugin_qguard.services.inactive_cleanup_service import (
@@ -87,6 +88,26 @@ async def test_inactive_cleanup_reminds_and_kicks_once() -> None:
     assert second.kicked == 0
     assert len(bot.private_messages) == 2
     assert bot.kicked == [(group_id, 1003, False)]
+
+
+@pytest.mark.asyncio
+async def test_inactive_cleanup_notice_can_be_cleared_after_activity() -> None:
+    group_id = 998000000 + (uuid4().int % 100000000)
+    user_id = 3001
+    now = datetime(2026, 6, 20, 0, 0, 0)
+    async with get_session() as session:
+        repo = MemberCleanupNoticeRepo(session)
+        await repo.mark_reminded(group_id, user_id, threshold_days=30, when=now)
+        await session.commit()
+
+    async with get_session() as session:
+        repo = MemberCleanupNoticeRepo(session)
+        assert await repo.get(group_id, user_id) is not None
+        assert await repo.clear(group_id, user_id) == 1
+        await session.commit()
+
+    async with get_session() as session:
+        assert await MemberCleanupNoticeRepo(session).get(group_id, user_id) is None
 
 
 @pytest.mark.asyncio

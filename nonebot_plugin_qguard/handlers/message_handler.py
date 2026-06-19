@@ -7,6 +7,7 @@ from nonebot_plugin_qguard.config import load_config
 from nonebot_plugin_qguard.enums import AuditAction, AuditResult, RuleAction
 from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.repositories.audit_log_repo import AuditLogRepo
+from nonebot_plugin_qguard.repositories.member_cleanup_notice_repo import MemberCleanupNoticeRepo
 from nonebot_plugin_qguard.repositories.member_repo import MemberRepo
 from nonebot_plugin_qguard.services.card_lock_service import CardLockService
 from nonebot_plugin_qguard.services.message_cache_service import MessageCacheService
@@ -179,6 +180,7 @@ def _bot_id(bot: Bot) -> int:
 async def _touch_member_active(event: GroupMessageEvent) -> None:
     async with get_session() as session:
         await MemberRepo(session).touch_active(event.group_id, event.user_id)
+        await MemberCleanupNoticeRepo(session).clear(event.group_id, event.user_id)
         await session.commit()
 
 

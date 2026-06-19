@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nonebot_plugin_qguard.models.member_cleanup_notice import MemberCleanupNotice
@@ -47,3 +47,12 @@ class MemberCleanupNoticeRepo:
         item.kicked_at = when
         await self.session.flush()
         return item
+
+    async def clear(self, group_id: int, user_id: int) -> int:
+        result = await self.session.execute(
+            delete(MemberCleanupNotice).where(
+                MemberCleanupNotice.group_id == group_id,
+                MemberCleanupNotice.user_id == user_id,
+            )
+        )
+        return result.rowcount or 0
