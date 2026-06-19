@@ -34,6 +34,7 @@ include = [
     "nonebot_plugin_group_wiki*",
     "nonebot_plugin_support_bot*",
     "nonebot_plugin_qfun*",
+    "nonebot_plugin_qlicense*",
 ]
 
 [tool.pytest.ini_options]
