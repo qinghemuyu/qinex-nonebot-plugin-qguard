@@ -56,7 +56,10 @@ class IntentService:
                 should_search_wiki=False,
                 reply_strategy="safe_no_answer",
             )
-        if not skill_registry.is_qinex_related(text) and not any(word in normalized for word in LOW_QUALITY):
+        low_signal_problem = any(word in normalized for word in LOW_QUALITY) or any(
+            word in normalized for word in GENERIC_PROBLEM_TERMS
+        )
+        if not skill_registry.is_qinex_related(text) and not low_signal_problem:
             return SupportIntent(
                 is_support_request=False,
                 intent="out_of_scope",
@@ -120,7 +123,7 @@ class IntentService:
             return "privacy_or_license"
         if any(word in text for word in ("压枪", "连点", "映射", "按键", "鼠标", "没反应", "不生效", "按键没用", "没有触点", "无触点")):
             return "mapping_not_working"
-        if any(word in text for word in ("卡顿", "延迟", "掉帧", "丢帧", "一卡一卡", "卡卡", "一顿一顿", "忽快忽慢", "慢", "慢半拍", "不跟手", "触摸点黏", "滑屏不顺")):
+        if any(word in text for word in ("卡", "卡顿", "延迟", "掉帧", "丢帧", "一卡一卡", "卡卡", "一顿一顿", "忽快忽慢", "慢", "慢半拍", "不跟手", "触摸点黏", "滑屏不顺")):
             return "performance_problem"
         if any(word in text for word in ("打不开", "启动", "闪退", "崩溃", "crash", "空白", "webview2")):
             return "launch_failed"

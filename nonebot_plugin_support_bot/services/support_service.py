@@ -525,14 +525,27 @@ class SupportBotService:
             clusters = await SupportIssueClusterRepo(session).list_hot(limit=limit)
         if not clusters:
             return "暂无智能问答缺口记录。"
-        lines = ["QInEX 智能问答缺口 TOP"]
+        top = clusters[0]
+        lines = [
+            "QInEX 智能问答缺口看板",
+            f"优先处理：{top.title or top.example_question[:30]}",
+            f"原因：未解决 {top.unresolved_count} 次，未命中 {top.no_answer_count} 次，出现 {top.occurrence_count} 次。",
+            "",
+            "TOP 问题：",
+        ]
         for index, item in enumerate(clusters, start=1):
+            priority = _issue_priority(item)
             lines.append(
-                f"{index}. {item.title or item.example_question[:30]}\n"
-                f"   分类：{item.skill}/{item.issue_type}，出现 {item.occurrence_count}，未命中 {item.no_answer_count}，未解决 {item.unresolved_count}，已解决 {item.resolved_count}"
+                f"{index}. {item.title or item.example_question[:30]}（优先级 {priority}）\n"
+                f"   分类：{item.skill}/{item.issue_type}，出现 {item.occurrence_count}，未命中 {item.no_answer_count}，未解决 {item.unresolved_count}，已解决 {item.resolved_count}\n"
+                f"   最近问题：{item.last_question[:80]}"
             )
             if item.last_record_no:
-                lines.append(f"   最近记录：{item.last_record_no}，可用 /客服 补知识 {item.last_record_no} 答案内容")
+                lines.append(f"   下一步：/客服 补知识 {item.last_record_no} 答案内容")
+            elif item.unresolved_count:
+                lines.append("   下一步：复盘连续未解决对话，补一条问诊流程或知识库答案。")
+            else:
+                lines.append("   下一步：观察用户是否继续追问；如果反复出现再补知识。")
         return "\n".join(lines)
 
     async def supplement_no_answer(
@@ -618,6 +631,16 @@ def _looks_like_continuation(text: str, previous_context: dict | None = None) ->
         "连点",
     )
     return len(stripped) <= 30 and any(marker in normalized for marker in short_fact_markers)
+
+
+def _issue_priority(item) -> int:
+    return max(
+        0,
+        int(getattr(item, "unresolved_count", 0) or 0) * 5
+        + int(getattr(item, "no_answer_count", 0) or 0) * 3
+        + int(getattr(item, "occurrence_count", 0) or 0)
+        - int(getattr(item, "resolved_count", 0) or 0) * 2,
+    )
 
 
 def _could_be_continuation_candidate(text: str) -> bool:

@@ -66,6 +66,7 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     panel_blank = await service.classify("上位机配置面板空白打不开")
     no_touch = await service.classify("保存了但是游戏里没有触点")
     ambiguous_mouse = await service.classify("鼠标没反应")
+    vague_jank = await service.classify("卡")
     precise_calibration = await service.classify("校准映射之后 部分映射按键失效")
     wasd_component = await service.classify("按住WA再按D没反应")
     ads_component = await service.classify("右键开镜怎么配")
@@ -87,6 +88,8 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     assert no_touch.issue_type == "mapping_not_working"
     assert ambiguous_mouse.reply_strategy == "ask_followup"
     assert "S3" in " ".join(ambiguous_mouse.missing_fields)
+    assert vague_jank.reply_strategy == "ask_followup"
+    assert vague_jank.issue_type == "performance_problem"
     assert precise_calibration.reply_strategy == "answer"
     assert wasd_component.reply_strategy == "answer"
     assert wasd_component.issue_type == "mapping_not_working"
@@ -108,6 +111,19 @@ async def test_support_bot_wiki_answer() -> None:
     assert "知识库回答" in reply.text
     assert reply.references == ["06_连点与压枪#压枪"]
     assert reply.state == "answered"
+
+
+@pytest.mark.asyncio
+async def test_support_bot_low_confidence_jank_asks_diagnostic_question() -> None:
+    await init_db()
+    group_id = 850200000 + (uuid4().int % 100000000)
+    service = SupportBotService(Config(), integration_service=FakeIntegration())
+
+    reply = await service.handle_user_issue("卡", group_id=group_id, user_id=1)
+
+    assert reply.state == "collecting_issue"
+    assert "卡顿/不跟手" in reply.text
+    assert "滑屏、投屏画面，还是按键响应" in reply.text
 
 
 @pytest.mark.asyncio
@@ -312,7 +328,10 @@ async def test_support_bot_no_answer_in_current_scope() -> None:
         clusters = list(result)
 
     assert any(item.no_answer_count >= 1 for item in clusters)
-    assert "未命中" in await service.issue_gaps()
+    gaps = await service.issue_gaps()
+    assert "缺口看板" in gaps
+    assert "优先处理" in gaps
+    assert "下一步：/客服 补知识" in gaps
 
 
 @pytest.mark.asyncio

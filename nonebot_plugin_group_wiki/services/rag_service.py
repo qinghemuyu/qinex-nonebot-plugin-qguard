@@ -113,7 +113,12 @@ class RAGService:
     def _fallback_answer(question: str, hits: list) -> str:
         first = hits[0]
         snippet = first.snippet or first.article.summary or split_text(first.article.content_md, chunk_size=260, overlap=0)[0]
-        return _clean_chat_answer(f"喵，知识库里和“{question}”最相关的是：{first.article.title}\n{snippet}\n引用：{first.reference}")
+        snippet = _compact_fallback_snippet(snippet)
+        return _clean_chat_answer(
+            f"喵，我先判断和“{first.article.title}”有关。\n"
+            f"你先按这个试：{snippet}\n"
+            f"引用：{first.reference}"
+        )
 
 
 def _unique_references(references: object) -> list[str]:
@@ -177,3 +182,23 @@ def _clean_chat_answer(text: str) -> str:
         line = re.sub(r"^(\d+)[.)]\s+", r"\1）", line)
         lines.append(line)
     return "\n".join(lines).strip()
+
+
+def _compact_fallback_snippet(text: str, limit: int = 180) -> str:
+    lines: list[str] = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        line = re.sub(r"^#{1,6}\s*", "", line)
+        line = re.sub(r"^[-*+]\s+", "", line)
+        line = re.sub(r"^(\d+)[.)]\s+", "", line)
+        if line in {"用户常见问法", "推荐回答", "回复边界"}:
+            continue
+        lines.append(line)
+        if len(" ".join(lines)) >= limit:
+            break
+    compact = " ".join(lines).strip() or text.strip()
+    if len(compact) <= limit:
+        return compact
+    return compact[: max(0, limit - 1)].rstrip() + "…"
