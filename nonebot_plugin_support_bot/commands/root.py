@@ -210,6 +210,22 @@ async def _notify_owner_if_needed(
     question: str,
     reply,
 ) -> None:
+    escalation_summary = str(getattr(reply, "owner_escalation_summary", "") or "").strip()
+    if getattr(reply, "owner_escalation", False) and escalation_summary:
+        notified = False
+        for owner_id in config.support_bot_admins:
+            try:
+                await bot.send_private_msg(user_id=int(owner_id), message=escalation_summary)
+                notified = True
+            except Exception:
+                continue
+        if notified:
+            await service.mark_issue_escalation_notified(get_event_group_id(event), int(event.user_id))
+            record_no = getattr(reply, "no_answer_id", "")
+            if record_no:
+                await service.mark_no_answer_notified(record_no)
+        return
+
     record_no = getattr(reply, "no_answer_id", "")
     if getattr(reply, "state", "") != "no_answer" or not record_no:
         return

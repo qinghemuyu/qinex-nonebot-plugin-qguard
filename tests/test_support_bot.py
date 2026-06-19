@@ -163,6 +163,34 @@ async def test_support_bot_continues_recent_user_context() -> None:
 
 
 @pytest.mark.asyncio
+async def test_support_bot_escalates_long_unresolved_issue_once() -> None:
+    await init_db()
+    group_id = 851500000 + (uuid4().int % 100000000)
+    integration = FakeIntegration()
+    service = SupportBotService(
+        Config(support_bot_conversation_ttl_seconds=180, support_bot_unresolved_escalation_turns=3),
+        integration_service=integration,
+    )
+
+    first = await service.handle_user_issue("QInEX 滑屏卡顿怎么办", group_id=group_id, user_id=1)
+    second = await service.handle_user_issue("还是不行", group_id=group_id, user_id=1)
+    third = await service.handle_user_issue("还是不行", group_id=group_id, user_id=1)
+
+    assert not first.owner_escalation
+    assert not second.owner_escalation
+    assert third.owner_escalation
+    assert third.owner_escalation_turns == 3
+    assert "连续未解决" in third.owner_escalation_summary
+    assert "QInEX 滑屏卡顿怎么办" in third.owner_escalation_summary
+    assert "最近补充" in third.owner_escalation_summary
+
+    await service.mark_issue_escalation_notified(group_id, 1)
+    fourth = await service.handle_user_issue("还是不行", group_id=group_id, user_id=1)
+
+    assert not fourth.owner_escalation
+
+
+@pytest.mark.asyncio
 async def test_support_bot_continuation_rule_does_not_create_group_config() -> None:
     await init_db()
     group_id = 852000000 + (uuid4().int % 100000000)

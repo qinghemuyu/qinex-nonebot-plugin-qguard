@@ -69,6 +69,7 @@ class SupportBotService:
             "连续对话：按提问人隔离\n"
             f"骚扰惩罚：{'开' if self.config.support_bot_harassment_enabled else '关'}"
             f"（警告 {self.config.support_bot_harassment_warn_threshold}，积分 {self.config.support_bot_harassment_score_threshold}）\n"
+            f"未解决升级：{self.config.support_bot_unresolved_escalation_turns} 轮\n"
             f"软件范围：{self.config.support_bot_software_name}\n"
             "知识范围：由 /知识 范围 控制\n"
             "技能列表：用 /知识 技能 查看"
@@ -139,7 +140,7 @@ class SupportBotService:
                 user_id,
             )
         if intent.reply_strategy == "ask_followup":
-            await self._save_session(
+            context = await self._save_session(
                 group_id,
                 user_id,
                 "collecting_issue",
@@ -148,11 +149,17 @@ class SupportBotService:
                 user_text=raw_text,
                 previous_context=previous_context,
             )
-            return await self._finalize_reply(
+            reply = self._attach_owner_escalation(
                 SupportReply(
                     text=trim_reply(format_followup(intent), self.config.support_bot_max_reply_length),
                     state="collecting_issue",
                 ),
+                context,
+                group_id=group_id,
+                user_id=user_id,
+            )
+            return await self._finalize_reply(
+                reply,
                 raw_text,
                 group_id,
                 user_id,
@@ -220,7 +227,7 @@ class SupportBotService:
         references = list(getattr(wiki_response, "references", []) or [])
         answer = str(getattr(wiki_response, "answer", "")).strip()
         if references:
-            await self._save_session(
+            context = await self._save_session(
                 group_id,
                 user_id,
                 "answered",
@@ -230,13 +237,18 @@ class SupportBotService:
                 previous_context=previous_context,
                 references=references,
             )
-            return SupportReply(
-                text=trim_reply(answer, self.config.support_bot_max_reply_length),
-                state="answered",
-                references=references,
-                ai_used=bool(getattr(wiki_response, "ai_used", False)),
+            return self._attach_owner_escalation(
+                SupportReply(
+                    text=trim_reply(answer, self.config.support_bot_max_reply_length),
+                    state="answered",
+                    references=references,
+                    ai_used=bool(getattr(wiki_response, "ai_used", False)),
+                ),
+                context,
+                group_id=group_id,
+                user_id=user_id,
             )
-        await self._save_session(
+        context = await self._save_session(
             group_id,
             user_id,
             "no_answer",
@@ -246,14 +258,45 @@ class SupportBotService:
             previous_context=previous_context,
         )
         record_no = await self._record_no_answer(group_id, user_id, text, reason="no_knowledge")
-        return SupportReply(
-            text=trim_reply(
-                "喵，当前群生效的知识库范围里没有找到可靠答案。我已经把这个问题记下来给主人看啦。你也可以换个关键词，或让管理员用 /知识 范围 查看本群启用的知识分类。",
-                self.config.support_bot_max_reply_length,
+        return self._attach_owner_escalation(
+            SupportReply(
+                text=trim_reply(
+                    "喵，当前群生效的知识库范围里没有找到可靠答案。我已经把这个问题记下来给主人看啦。你也可以换个关键词，或让管理员用 /知识 范围 查看本群启用的知识分类。",
+                    self.config.support_bot_max_reply_length,
+                ),
+                state="no_answer",
+                no_answer_id=record_no,
             ),
-            state="no_answer",
-            no_answer_id=record_no,
+            context,
+            group_id=group_id,
+            user_id=user_id,
         )
+
+    def _attach_owner_escalation(
+        self,
+        reply: SupportReply,
+        context: dict,
+        *,
+        group_id: int | None,
+        user_id: int,
+    ) -> SupportReply:
+        threshold = self.config.support_bot_unresolved_escalation_turns
+        if threshold <= 0:
+            return reply
+        if bool(context.get("owner_escalation_notified")):
+            return reply
+        turn_count = int(context.get("issue_turn_count") or 1)
+        if turn_count < threshold:
+            return reply
+        reply.owner_escalation = True
+        reply.owner_escalation_turns = turn_count
+        reply.owner_escalation_summary = _build_owner_escalation_summary(
+            context,
+            group_id=group_id,
+            user_id=user_id,
+            latest_reply=reply.text,
+        )
+        return reply
 
     async def _finalize_reply(
         self,
@@ -293,7 +336,7 @@ class SupportBotService:
         user_text: str | None = None,
         previous_context: dict | None = None,
         references: list[str] | None = None,
-    ) -> None:
+    ) -> dict:
         context = _build_session_context(
             intent=intent,
             text=text,
@@ -312,6 +355,7 @@ class SupportBotService:
                 ttl_seconds=self.config.support_bot_session_ttl_seconds,
             )
             await session.commit()
+        return context
 
     async def _recent_context(self, group_id: int | None, user_id: int) -> dict | None:
         if group_id is None or self.config.support_bot_conversation_ttl_seconds <= 0:
@@ -350,6 +394,24 @@ class SupportBotService:
             return
         async with get_session() as session:
             await SupportNoAnswerRepo(session).mark_notified(record_no)
+            await session.commit()
+
+    async def mark_issue_escalation_notified(self, group_id: int | None, user_id: int) -> None:
+        if group_id is None:
+            return
+        now = datetime.utcnow()
+        async with get_session() as session:
+            item = await SupportSessionRepo(session).get_active(int(group_id), user_id, now)
+            if item is None:
+                return
+            try:
+                context = json.loads(item.context_json or "{}")
+            except json.JSONDecodeError:
+                context = {}
+            if not isinstance(context, dict):
+                context = {}
+            context["owner_escalation_notified"] = True
+            item.context_json = json.dumps(context, ensure_ascii=False)
             await session.commit()
 
 
@@ -454,11 +516,21 @@ def _build_session_context(
     state: str,
     references: list[str],
 ) -> dict:
+    same_issue = _is_same_issue(intent, user_text, previous_context)
     turns = []
+    issue_turn_count = 1
+    issue_started_text = text[:1000]
+    owner_escalation_notified = False
     if previous_context is not None:
-        raw_turns = previous_context.get("turns")
-        if isinstance(raw_turns, list):
-            turns = [turn for turn in raw_turns if isinstance(turn, dict)][-3:]
+        if same_issue:
+            raw_turns = previous_context.get("turns")
+            if isinstance(raw_turns, list):
+                turns = [turn for turn in raw_turns if isinstance(turn, dict)][-9:]
+            issue_turn_count = int(previous_context.get("issue_turn_count") or len(turns) or 1) + 1
+            issue_started_text = str(previous_context.get("issue_started_text") or previous_context.get("text") or text)[
+                :1000
+            ]
+            owner_escalation_notified = bool(previous_context.get("owner_escalation_notified"))
     turns.append(
         {
             "state": state,
@@ -473,8 +545,88 @@ def _build_session_context(
         "text": text[:1000],
         "latest_user_text": user_text[:500],
         "references": references[:5],
-        "turns": turns[-4:],
+        "turns": turns[-10:],
+        "issue_turn_count": issue_turn_count,
+        "issue_started_text": issue_started_text,
+        "owner_escalation_notified": owner_escalation_notified,
     }
+
+
+def _is_same_issue(intent: SupportIntent, user_text: str, previous_context: dict | None) -> bool:
+    if previous_context is None:
+        return False
+    if any(marker in user_text for marker in RESET_MARKERS):
+        return False
+    if _looks_like_continuation(user_text, previous_context):
+        return True
+    previous_skill = str(previous_context.get("skill") or "")
+    previous_issue_type = str(previous_context.get("issue_type") or "")
+    if not previous_skill or not previous_issue_type or previous_issue_type == "unknown":
+        return False
+    if previous_skill != intent.skill or previous_issue_type != intent.issue_type:
+        return False
+    previous_text = str(previous_context.get("issue_started_text") or previous_context.get("text") or "")
+    return _has_meaningful_overlap(previous_text, user_text)
+
+
+def _has_meaningful_overlap(previous_text: str, current_text: str) -> bool:
+    previous_terms = _text_bigrams(previous_text)
+    current_terms = _text_bigrams(current_text)
+    if not previous_terms or not current_terms:
+        return False
+    overlap = previous_terms.intersection(current_terms)
+    return len(overlap) >= 2 or len(overlap) / max(len(current_terms), 1) >= 0.35
+
+
+def _text_bigrams(text: str) -> set[str]:
+    normalized = "".join(ch.lower() for ch in text if ch.isalnum() or "\u4e00" <= ch <= "\u9fff")
+    if len(normalized) < 2:
+        return {normalized} if normalized else set()
+    return {normalized[index : index + 2] for index in range(len(normalized) - 1)}
+
+
+def _build_owner_escalation_summary(
+    context: dict,
+    *,
+    group_id: int | None,
+    user_id: int,
+    latest_reply: str,
+) -> str:
+    turns = [turn for turn in context.get("turns", []) if isinstance(turn, dict)]
+    recent_user_texts = _unique_nonempty(str(turn.get("user") or "") for turn in turns[-6:])
+    references = _unique_nonempty(
+        str(reference)
+        for turn in turns
+        for reference in (turn.get("references") if isinstance(turn.get("references"), list) else [])
+    )
+    lines = [
+        "QInEX 智能问答连续未解决",
+        f"群：{group_id or '私聊'}",
+        f"用户：{user_id}",
+        f"轮数：{int(context.get('issue_turn_count') or len(turns) or 1)}",
+        f"分类：{context.get('skill') or 'unknown'} / {context.get('issue_type') or 'unknown'}",
+        f"最初问题：{str(context.get('issue_started_text') or context.get('text') or '').strip()[:500]}",
+    ]
+    if recent_user_texts:
+        lines.append("最近补充：")
+        lines.extend(f"{index}. {text[:180]}" for index, text in enumerate(recent_user_texts, start=1))
+    if references:
+        lines.append(f"命中过的知识：{'，'.join(references[:5])}")
+    lines.append(f"机器人最新回复：{latest_reply.strip()[:500]}")
+    lines.append("建议：主人介入看一下，必要时补知识库或让用户发截图/版本/模式信息。")
+    return "\n".join(lines)
+
+
+def _unique_nonempty(values) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = value.strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
 
 
 def _format_harassment_notice(score_delta: int, anger_score: int, severity: int, warn_threshold: int) -> str:
