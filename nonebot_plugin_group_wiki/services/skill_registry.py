@@ -5,6 +5,7 @@ from dataclasses import dataclass
 FAQ_CATEGORY = "FAQ问答对"
 TERMS_CATEGORY = "12_术语别名与口语化问法"
 COMPONENT_CATEGORY = "13_映射组件诊断卡片"
+SUPPORT_CATEGORY = "14_智能客服与售后闭环"
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,6 +225,36 @@ WIKI_SKILLS: tuple[WikiSkill, ...] = (
             "手机app",
             "qinescreen",
             "vpointer",
+        ),
+    ),
+    WikiSkill(
+        skill_id="qinex_ai_support",
+        name="智能客服与售后闭环",
+        categories=(SUPPORT_CATEGORY, TERMS_CATEGORY, FAQ_CATEGORY),
+        keywords=(
+            "智能问答",
+            "智能客服",
+            "客服",
+            "售后",
+            "求助",
+            "机器人",
+            "问诊",
+            "低置信度",
+            "追问",
+            "连续对话",
+            "未命中",
+            "知识缺口",
+            "缺口",
+            "补知识",
+            "解决了",
+            "还是不行",
+            "主人",
+            "/客服",
+            "/求助",
+            "/售后",
+            "/不会用",
+            "/知识 范围",
+            "/知识 技能",
         ),
     ),
 )

@@ -15,6 +15,7 @@ from nonebot_plugin_group_wiki.services.search_service import WikiSearchService,
 from nonebot_plugin_group_wiki.services.skill_registry import (
     COMPONENT_CATEGORY,
     FAQ_CATEGORY,
+    SUPPORT_CATEGORY,
     TERMS_CATEGORY,
     categories_for_skill_ids,
     faq_chunk_allowed_for_categories,
@@ -71,23 +72,29 @@ def test_qinex_skill_registry() -> None:
     categories, rejected = categories_for_skill_ids(["qinex_recoil_click", "qinex_p4", "qinex_activation"])
     term_categories, term_rejected = categories_for_skill_ids(["qinex_terms"])
     mapping_categories, mapping_rejected = categories_for_skill_ids(["qinex_mapping"])
+    support_categories, support_rejected = categories_for_skill_ids(["qinex_ai_support"])
 
     assert "06_连点与压枪" in categories
     assert "08_P4单机版" in categories
     assert "11_激活与安全说明" in categories
     assert TERMS_CATEGORY in term_categories
     assert COMPONENT_CATEGORY in mapping_categories
+    assert SUPPORT_CATEGORY in support_categories
     assert FAQ_CATEGORY not in categories
     assert rejected == []
     assert term_rejected == []
     assert mapping_rejected == []
+    assert support_rejected == []
     assert match_skill_id("P4 单机版怎么用手机配置") == "qinex_p4"
     assert match_skill_id("S3板子要怎么激活") == "qinex_activation"
     assert match_skill_id("最新版上位机有时候一卡一卡的") == "qinex_troubleshooting"
     assert match_skill_id("上位机是什么意思") == "qinex_terms"
+    assert match_skill_id("/客服 缺口 是干什么的") == "qinex_ai_support"
+    assert match_skill_id("机器人未命中怎么补知识") == "qinex_ai_support"
     assert match_skill_id("校准映射之后 部分映射按键失效") in {"qinex_mapping", "qinex_troubleshooting"}
     assert faq_chunk_allowed_for_categories("## 五、连点 / 压枪\n压枪怎么开", ["06_连点与压枪"])
     assert not faq_chunk_allowed_for_categories("## 七、投屏\n投屏怎么开", ["06_连点与压枪"])
+    assert faq_chunk_allowed_for_categories("## 九、智能客服 / 售后闭环\n/客服 缺口 是干什么的", [SUPPORT_CATEGORY])
 
 
 def test_qinex_related_uses_context_for_weak_mapping_terms() -> None:

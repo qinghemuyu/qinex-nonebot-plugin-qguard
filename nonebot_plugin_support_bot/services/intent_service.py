@@ -2,6 +2,7 @@ from types import ModuleType
 import importlib
 
 from nonebot_plugin_support_bot.config import Config, load_config
+from nonebot_plugin_support_bot.services.harassment_service import classify_harassment
 from nonebot_plugin_support_bot.services.schemas import SupportIntent
 
 
@@ -43,6 +44,17 @@ class IntentService:
 
     async def classify(self, text: str) -> SupportIntent:
         normalized = text.strip().lower()
+        harassment_severity, _reason = classify_harassment(text, "out_of_scope")
+        if harassment_severity >= 2:
+            return SupportIntent(
+                is_support_request=False,
+                intent="out_of_scope",
+                confidence=0.95,
+                skill="unknown",
+                issue_type="out_of_scope",
+                should_search_wiki=False,
+                reply_strategy="reject",
+            )
         skill_registry = _get_skill_registry()
         skill = skill_registry.match_skill_id(text)
         if _is_license_or_privacy_question(normalized) and not _is_safe_activation_question(normalized):
