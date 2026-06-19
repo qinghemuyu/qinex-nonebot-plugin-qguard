@@ -13,6 +13,7 @@ def test_local_plugins_can_load_before_ai_core(tmp_path: Path) -> None:
         "nonebot_plugin_log_doctor",
         "nonebot_plugin_group_wiki",
         "nonebot_plugin_support_bot",
+        "nonebot_plugin_qfun",
     ):
         shutil.copytree(
             Path.cwd() / package,
@@ -34,6 +35,7 @@ for name in (
     "src.qinex.plugins.nonebot_plugin_support_bot",
     "src.qinex.plugins.nonebot_plugin_group_wiki",
     "src.qinex.plugins.nonebot_plugin_log_doctor",
+    "src.qinex.plugins.nonebot_plugin_qfun",
     "src.qinex.plugins.nonebot_plugin_ai_core",
 ):
     plugin = nonebot.load_plugin(name)
@@ -61,5 +63,6 @@ print(AIDiagnoseService().ai_core is None)
     assert "src.qinex.plugins.nonebot_plugin_support_bot True" in result.stdout
     assert "src.qinex.plugins.nonebot_plugin_group_wiki True" in result.stdout
     assert "src.qinex.plugins.nonebot_plugin_log_doctor True" in result.stdout
+    assert "src.qinex.plugins.nonebot_plugin_qfun True" in result.stdout
     assert "src.qinex.plugins.nonebot_plugin_ai_core True" in result.stdout
     assert "AICoreService" in result.stdout

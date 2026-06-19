@@ -45,3 +45,24 @@ class MessageCacheRepo:
             .limit(limit)
         )
         return list(result)
+
+    async def list_group_messages(
+        self,
+        group_id: int,
+        *,
+        since: datetime,
+        until: datetime,
+        limit: int = 5000,
+    ) -> list[MessageCache]:
+        result = await self.session.scalars(
+            select(MessageCache)
+            .where(
+                MessageCache.group_id == group_id,
+                MessageCache.created_at >= since,
+                MessageCache.created_at < until,
+                MessageCache.plain_text.is_not(None),
+            )
+            .order_by(MessageCache.created_at.desc())
+            .limit(limit)
+        )
+        return list(result)

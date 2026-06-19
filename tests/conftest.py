@@ -15,6 +15,10 @@ os.environ.setdefault(
     "SUPPORT_BOT_DB_URL",
     f"sqlite+aiosqlite:///{Path(gettempdir()).as_posix()}/support_bot_test_{uuid4().hex}.db",
 )
+os.environ.setdefault(
+    "QFUN_DB_URL",
+    f"sqlite+aiosqlite:///{Path(gettempdir()).as_posix()}/qfun_test_{uuid4().hex}.db",
+)
 
 nonebot.init(driver="~none")
 

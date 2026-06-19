@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from nonebot_plugin_ai_core.qguard_registry import get_qguard_descriptor as get_ai_descriptor
 from nonebot_plugin_group_wiki.qguard_registry import get_qguard_descriptor as get_wiki_descriptor
+from nonebot_plugin_qfun.qguard_registry import get_qguard_descriptor as get_qfun_descriptor
 from nonebot_plugin_qguard.enums import QGuardRole
 from nonebot_plugin_qguard.qguard_registry import get_qguard_descriptor
 from nonebot_plugin_qguard.registry import (
@@ -33,6 +34,7 @@ def _register_test_descriptors() -> None:
     register_plugin(get_ai_descriptor())
     register_plugin(get_wiki_descriptor())
     register_plugin(get_support_descriptor())
+    register_plugin(get_qfun_descriptor())
 
 
 def test_registry_help_filters_by_role() -> None:
@@ -41,12 +43,14 @@ def test_registry_help_filters_by_role() -> None:
     member_help = build_help_text(QGuardRole.MEMBER)
     assert "/求助 问题描述" in member_help
     assert "/问 问题" in member_help
+    assert "/娱乐 词云" in member_help
     assert "/ai状态" not in member_help
     assert "/管 禁 @用户 10m 原因" not in member_help
 
     super_help = build_help_text(QGuardRole.SUPER_ADMIN, include_all=True)
     assert "/ai状态" in super_help
     assert "/ai测试" in super_help
+    assert "/娱乐 词云定时 开 21:30" in super_help
     assert "/管 禁 @用户 10m 原因" in super_help
 
 

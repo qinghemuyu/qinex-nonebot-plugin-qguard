@@ -66,6 +66,7 @@ _KNOWN_PLUGIN_MODULES = (
     "nonebot_plugin_ai_core",
     "nonebot_plugin_group_wiki",
     "nonebot_plugin_support_bot",
+    "nonebot_plugin_qfun",
 )
 CATEGORY_LABELS: dict[str, str] = {
     "qguard": "群管",
