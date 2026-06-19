@@ -242,9 +242,9 @@ class InactiveCleanupService:
                     skipped += 1
                     continue
 
-                notice = await notice_repo.get_or_create(group_id, user_id)
+                notice = await notice_repo.get(group_id, user_id)
                 if inactive_days >= kick_days:
-                    if notice.kicked_at is not None:
+                    if notice is not None and notice.kicked_at is not None:
                         skipped += 1
                         continue
                     try:
@@ -276,7 +276,10 @@ class InactiveCleanupService:
                     continue
 
                 threshold_days = _matched_reminder_threshold(inactive_days, reminder_days)
-                if threshold_days is None or notice.last_reminded_days >= threshold_days:
+                if threshold_days is None:
+                    continue
+                last_reminded_days = 0 if notice is None else notice.last_reminded_days
+                if last_reminded_days >= threshold_days:
                     continue
                 try:
                     await _send_private_reminder(bot, group_id, user_id, inactive_days, kick_days)
