@@ -16,6 +16,37 @@ class SupportIssueClusterRepo:
         )
         return result.one_or_none()
 
+    async def get_by_ref(self, ref: str) -> SupportIssueCluster | None:
+        stripped = ref.strip()
+        if not stripped:
+            return None
+        upper = stripped.upper()
+        if upper.startswith("C"):
+            try:
+                cluster_id = int(upper.removeprefix("C"))
+            except ValueError:
+                cluster_id = 0
+            if cluster_id > 0:
+                item = await self.session.get(SupportIssueCluster, cluster_id)
+                if item is not None:
+                    return item
+        result = await self.session.scalars(
+            select(SupportIssueCluster)
+            .where(SupportIssueCluster.title == stripped)
+            .order_by(desc(SupportIssueCluster.updated_at))
+            .limit(1)
+        )
+        item = result.first()
+        if item is not None:
+            return item
+        result = await self.session.scalars(
+            select(SupportIssueCluster)
+            .where(SupportIssueCluster.cluster_key == stripped)
+            .order_by(desc(SupportIssueCluster.updated_at))
+            .limit(1)
+        )
+        return result.first()
+
     async def record(
         self,
         *,

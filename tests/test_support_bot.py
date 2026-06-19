@@ -331,6 +331,7 @@ async def test_support_bot_no_answer_in_current_scope() -> None:
     gaps = await service.issue_gaps()
     assert "缺口看板" in gaps
     assert "优先处理" in gaps
+    assert "C000" in gaps
     assert "下一步：/客服 补知识" in gaps
 
 
@@ -370,3 +371,62 @@ async def test_support_bot_supplement_no_answer_creates_wiki_article() -> None:
     assert "已补充知识" in result
     assert hits
     assert hits[0].article.source_ref_id == reply.no_answer_id
+
+
+@pytest.mark.asyncio
+async def test_support_bot_supplement_issue_cluster_creates_wiki_article() -> None:
+    await init_db()
+    await init_wiki_db()
+    group_id = 875500000 + (uuid4().int % 100000000)
+    service = SupportBotService(Config(), integration_service=FakeIntegration())
+
+    await service.handle_user_issue("上位机遮罩打开了键盘同步输出到电脑", group_id=group_id, user_id=123)
+    async with get_session() as session:
+        result = await session.scalars(
+            select(SupportIssueCluster)
+            .where(SupportIssueCluster.last_group_id == group_id)
+            .order_by(SupportIssueCluster.id.desc())
+        )
+        cluster = result.first()
+
+    assert cluster is not None
+    cluster_ref = f"C{cluster.id:06d}"
+    result = await service.supplement_no_answer(
+        cluster_ref,
+        "上位机暂时没有屏蔽键盘同步输出到电脑的功能,建议先用游戏内输入设置或系统层方案规避。",
+        author_id=1348984838,
+        group_id=group_id,
+    )
+    hits = await WikiSearchService().search("遮罩 键盘 同步输出", group_id=group_id)
+
+    assert "已补充知识" in result
+    assert hits
+    assert hits[0].article.source_type == "support_issue_cluster"
+    assert hits[0].article.source_ref_id == cluster_ref
+
+
+@pytest.mark.asyncio
+async def test_support_bot_supplement_issue_cluster_by_display_title() -> None:
+    await init_db()
+    await init_wiki_db()
+    group_id = 875700000 + (uuid4().int % 100000000)
+    service = SupportBotService(Config(), integration_service=FakeIntegration())
+
+    await service.handle_user_issue("QInEX 一个完全新的测试问题", group_id=group_id, user_id=123)
+    async with get_session() as session:
+        result = await session.scalars(
+            select(SupportIssueCluster)
+            .where(SupportIssueCluster.last_group_id == group_id)
+            .order_by(SupportIssueCluster.id.desc())
+        )
+        cluster = result.first()
+
+    assert cluster is not None
+    result = await service.supplement_no_answer(
+        cluster.title,
+        "这是通过缺口看板旧版标题补充的答案。",
+        author_id=1348984838,
+        group_id=group_id,
+    )
+
+    assert "已补充知识" in result

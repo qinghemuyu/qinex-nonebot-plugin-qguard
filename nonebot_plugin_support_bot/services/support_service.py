@@ -535,17 +535,19 @@ class SupportBotService:
         ]
         for index, item in enumerate(clusters, start=1):
             priority = _issue_priority(item)
+            cluster_ref = _cluster_ref(item)
             lines.append(
-                f"{index}. {item.title or item.example_question[:30]}（优先级 {priority}）\n"
+                f"{index}. {item.title or item.example_question[:30]} [{cluster_ref}]（优先级 {priority}）\n"
                 f"   分类：{item.skill}/{item.issue_type}，出现 {item.occurrence_count}，未命中 {item.no_answer_count}，未解决 {item.unresolved_count}，已解决 {item.resolved_count}\n"
                 f"   最近问题：{item.last_question[:80]}"
             )
             if item.last_record_no:
-                lines.append(f"   下一步：/客服 补知识 {item.last_record_no} 答案内容")
+                lines.append(f"   未命中记录：{item.last_record_no}")
+                lines.append(f"   下一步：/客服 补知识 {cluster_ref} 答案内容")
             elif item.unresolved_count:
-                lines.append("   下一步：复盘连续未解决对话，补一条问诊流程或知识库答案。")
+                lines.append(f"   下一步：/客服 补知识 {cluster_ref} 答案内容")
             else:
-                lines.append("   下一步：观察用户是否继续追问；如果反复出现再补知识。")
+                lines.append(f"   下一步：观察是否反复出现；需要时可用 /客服 补知识 {cluster_ref} 答案内容")
         return "\n".join(lines)
 
     async def supplement_no_answer(
@@ -556,17 +558,26 @@ class SupportBotService:
         author_id: int | None,
         group_id: int | None = None,
     ) -> str:
-        normalized_record_no = record_no.strip().upper()
+        raw_ref = record_no.strip()
+        normalized_record_no = raw_ref.upper()
         answer = answer.strip()
         if not normalized_record_no or not answer:
-            return "用法：/客服 补知识 N000001 答案内容"
+            return "用法：/客服 补知识 N000001 答案内容，或 /客服 补知识 C000001 答案内容"
+        source_type = "support_no_answer"
+        source_ref_id = normalized_record_no
         async with get_session() as session:
             item = await SupportNoAnswerRepo(session).get_by_record_no(normalized_record_no)
-            if item is None:
-                return "没有找到这条未命中记录。"
-            question = item.question
-            item.notified_owner = True
-            item.updated_at = datetime.utcnow()
+            if item is not None:
+                question = item.question
+                item.notified_owner = True
+                item.updated_at = datetime.utcnow()
+            else:
+                cluster = await SupportIssueClusterRepo(session).get_by_ref(raw_ref)
+                if cluster is None:
+                    return "没有找到这条未命中记录或缺口编号。可以先用 /客服 缺口 查看 C 编号。"
+                question = cluster.example_question or cluster.last_question
+                source_type = "support_issue_cluster"
+                source_ref_id = _cluster_ref(cluster)
             await session.commit()
         try:
             from nonebot_plugin_group_wiki.services.article_service import GroupWikiService
@@ -588,8 +599,8 @@ class SupportBotService:
             group_id=group_id,
             author_id=author_id,
             scope="global",
-            source_type="support_no_answer",
-            source_ref_id=normalized_record_no,
+            source_type=source_type,
+            source_ref_id=source_ref_id,
             category="FAQ问答对",
             summary=answer[:180],
         )
@@ -641,6 +652,14 @@ def _issue_priority(item) -> int:
         + int(getattr(item, "occurrence_count", 0) or 0)
         - int(getattr(item, "resolved_count", 0) or 0) * 2,
     )
+
+
+def _cluster_ref(item) -> str:
+    try:
+        cluster_id = int(getattr(item, "id", 0) or 0)
+    except (TypeError, ValueError):
+        cluster_id = 0
+    return f"C{cluster_id:06d}" if cluster_id > 0 else "C000000"
 
 
 def _could_be_continuation_candidate(text: str) -> bool:
