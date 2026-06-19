@@ -84,6 +84,33 @@ class SupportNoAnswer(Base):
     )
 
 
+class SupportIssueCluster(Base):
+    __tablename__ = "support_issue_cluster"
+    __table_args__ = (UniqueConstraint("cluster_key", name="uq_support_issue_cluster_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    cluster_key: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
+    title: Mapped[str] = mapped_column(String(256), default="", nullable=False)
+    skill: Mapped[str] = mapped_column(String(64), default="unknown", nullable=False)
+    issue_type: Mapped[str] = mapped_column(String(64), default="unknown", nullable=False)
+    example_question: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    last_question: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    occurrence_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    no_answer_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    unresolved_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    resolved_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_group_id: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    last_user_id: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    last_record_no: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+
 class SupportHarassmentMemory(Base):
     __tablename__ = "support_harassment_memory"
     __table_args__ = (UniqueConstraint("group_id", "user_id", name="uq_support_harassment_group_user"),)

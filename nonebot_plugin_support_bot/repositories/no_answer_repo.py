@@ -31,12 +31,15 @@ class SupportNoAnswerRepo:
         return item
 
     async def mark_notified(self, record_no: str) -> None:
-        result = await self.session.scalars(
-            select(SupportNoAnswer).where(SupportNoAnswer.record_no == record_no)
-        )
-        item = result.one_or_none()
+        item = await self.get_by_record_no(record_no)
         if item is None:
             return
         item.notified_owner = True
         item.updated_at = datetime.utcnow()
         await self.session.flush()
+
+    async def get_by_record_no(self, record_no: str) -> SupportNoAnswer | None:
+        result = await self.session.scalars(
+            select(SupportNoAnswer).where(SupportNoAnswer.record_no == record_no.upper())
+        )
+        return result.one_or_none()

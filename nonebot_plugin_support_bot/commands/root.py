@@ -25,6 +25,8 @@ HELP_TEXT = """QInEX 智能问答命令
 /客服 关闭
 /客服 模式 命令触发
 /客服 模式 智能监听
+/客服 缺口
+/客服 补知识 N000001 答案内容
 /求助 问题描述
 /售后 问题描述
 /不会用 功能名称
@@ -111,6 +113,25 @@ async def _(bot: Bot, event: MessageEvent) -> None:
             if mode == "":
                 await finish_reply(support_command, bot, event, "用法：/客服 模式 命令触发 或 /客服 模式 智能监听")
             await finish_reply(support_command, bot, event, await service.set_mode(group_id, mode, event.user_id))
+        if action == "缺口":
+            if not permission_check.checked and not is_admin:
+                await finish_reply(support_command, bot, event, "只有主人或管理员可以查看智能问答缺口。")
+            await finish_reply(support_command, bot, event, await service.issue_gaps())
+        if action == "补知识":
+            if not permission_check.checked and not is_admin:
+                await finish_reply(support_command, bot, event, "只有主人或管理员可以补充智能问答知识。")
+            record_no, answer = _parse_supplement_args(args_text)
+            await finish_reply(
+                support_command,
+                bot,
+                event,
+                await service.supplement_no_answer(
+                    record_no,
+                    answer,
+                    author_id=int(event.user_id),
+                    group_id=group_id,
+                ),
+            )
         await finish_reply(support_command, bot, event, HELP_TEXT)
 
     if command in {"/求助", "/售后", "/不会用"}:
@@ -187,6 +208,13 @@ def _parse_mode(text: str) -> str:
     return ""
 
 
+def _parse_supplement_args(text: str) -> tuple[str, str]:
+    parts = text.strip().split(maxsplit=1)
+    if len(parts) < 2:
+        return "", ""
+    return parts[0].strip().upper(), parts[1].strip()
+
+
 def _support_permission_selector(command: str, actions: list[str], args_text: str) -> tuple[str, int]:
     if command == "/客服":
         action = actions[0] if actions else "帮助"
@@ -198,6 +226,8 @@ def _support_permission_selector(command: str, actions: list[str], args_text: st
                 return "/客服 模式 智能监听", 3
             return "/客服 模式", 3
         fallback = 3 if action in {"开启", "关闭"} else 0
+        if action in {"缺口", "补知识"}:
+            fallback = 4
         return f"/客服 {action}", fallback
     return command, 0
 
@@ -212,6 +242,9 @@ async def _notify_owner_if_needed(
 ) -> None:
     escalation_summary = str(getattr(reply, "owner_escalation_summary", "") or "").strip()
     if getattr(reply, "owner_escalation", False) and escalation_summary:
+        record_no = getattr(reply, "no_answer_id", "")
+        if record_no:
+            escalation_summary = f"{escalation_summary}\n补知识：/客服 补知识 {record_no} 答案内容"
         notified = False
         for owner_id in config.support_bot_admins:
             try:
@@ -221,7 +254,6 @@ async def _notify_owner_if_needed(
                 continue
         if notified:
             await service.mark_issue_escalation_notified(get_event_group_id(event), int(event.user_id))
-            record_no = getattr(reply, "no_answer_id", "")
             if record_no:
                 await service.mark_no_answer_notified(record_no)
         return
@@ -236,7 +268,8 @@ async def _notify_owner_if_needed(
         f"群：{group_id or '私聊'}\n"
         f"用户：{event.user_id}\n"
         f"问题：{question.strip()[:800]}\n"
-        f"机器人回复：{str(getattr(reply, 'text', '')).strip()[:800]}"
+        f"机器人回复：{str(getattr(reply, 'text', '')).strip()[:800]}\n"
+        f"补知识：/客服 补知识 {record_no} 答案内容"
     )
     notified = False
     for owner_id in config.support_bot_admins:

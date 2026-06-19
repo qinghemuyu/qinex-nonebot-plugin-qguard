@@ -61,6 +61,8 @@ def get_qguard_descriptor() -> PluginDescriptor:
             _cmd("/客服 关闭", "关闭本群智能问答", QGuardRole.GROUP_ADMIN, reply_category="command_reply"),
             _cmd("/客服 模式 命令触发", "切换为命令触发模式", QGuardRole.GROUP_ADMIN, reply_category="command_reply"),
             _cmd("/客服 模式 智能监听", "切换为智能监听模式", QGuardRole.GROUP_ADMIN, reply_category="command_reply"),
+            _cmd("/客服 缺口", "查看智能问答知识缺口", QGuardRole.GROUP_OWNER, reply_category="command_reply"),
+            _cmd("/客服 补知识 N000001 答案内容", "把未命中记录补进知识库", QGuardRole.GROUP_OWNER, reply_category="command_reply"),
         ),
         default_enabled=True,
         status_provider=_status_provider,

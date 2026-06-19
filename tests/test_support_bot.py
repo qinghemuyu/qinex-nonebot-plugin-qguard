@@ -4,9 +4,11 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import select
 
+from nonebot_plugin_group_wiki.models import init_db as init_wiki_db
+from nonebot_plugin_group_wiki.services.search_service import WikiSearchService
 from nonebot_plugin_support_bot.commands._common import parse_support_command
 from nonebot_plugin_support_bot.config import Config, _parse_int_list
-from nonebot_plugin_support_bot.models import SupportGroupConfig, SupportNoAnswer, get_session, init_db
+from nonebot_plugin_support_bot.models import SupportGroupConfig, SupportIssueCluster, SupportNoAnswer, get_session, init_db
 from nonebot_plugin_support_bot.services.intent_service import IntentService
 from nonebot_plugin_support_bot.services.support_service import SupportBotService
 
@@ -39,6 +41,7 @@ class FakeIntegration:
 
 def test_parse_support_command() -> None:
     assert parse_support_command("/客服 状态") == ("/客服", ["状态"], "")
+    assert parse_support_command("/客服 补知识 N000001 先检查配置") == ("/客服", ["补知识"], "N000001 先检查配置")
     assert parse_support_command("/求助 压枪怎么配置") == ("/求助", [], "压枪怎么配置")
     assert parse_support_command("/工单 创建 映射没反应") is None
     assert parse_support_command("/报错 xxx") is None
@@ -62,6 +65,8 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     pc_jank = await service.classify("最新版上位机有那种掉帧的感觉，有时候一卡一卡的")
     panel_blank = await service.classify("上位机配置面板空白打不开")
     no_touch = await service.classify("保存了但是游戏里没有触点")
+    ambiguous_mouse = await service.classify("鼠标没反应")
+    precise_calibration = await service.classify("校准映射之后 部分映射按键失效")
     wasd_component = await service.classify("按住WA再按D没反应")
     ads_component = await service.classify("右键开镜怎么配")
     generic_wasd = await service.classify("我的wasd键盘坏了怎么办")
@@ -80,6 +85,9 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     assert panel_blank.issue_type == "launch_failed"
     assert no_touch.reply_strategy == "answer"
     assert no_touch.issue_type == "mapping_not_working"
+    assert ambiguous_mouse.reply_strategy == "ask_followup"
+    assert "S3" in " ".join(ambiguous_mouse.missing_fields)
+    assert precise_calibration.reply_strategy == "answer"
     assert wasd_component.reply_strategy == "answer"
     assert wasd_component.issue_type == "mapping_not_working"
     assert ads_component.reply_strategy == "answer"
@@ -191,6 +199,25 @@ async def test_support_bot_escalates_long_unresolved_issue_once() -> None:
 
 
 @pytest.mark.asyncio
+async def test_support_bot_resolved_feedback_updates_issue_cluster() -> None:
+    await init_db()
+    group_id = 851700000 + (uuid4().int % 100000000)
+    service = SupportBotService(Config(), integration_service=FakeIntegration())
+
+    first = await service.handle_user_issue("QInEX 滑屏卡顿怎么办", group_id=group_id, user_id=1)
+    second = await service.handle_user_issue("解决了", group_id=group_id, user_id=1)
+
+    async with get_session() as session:
+        result = await session.scalars(select(SupportIssueCluster))
+        clusters = list(result)
+
+    assert first.state == "answered"
+    assert second.state == "resolved_feedback"
+    assert "已解决" in second.text
+    assert any(item.resolved_count >= 1 for item in clusters)
+
+
+@pytest.mark.asyncio
 async def test_support_bot_continuation_rule_does_not_create_group_config() -> None:
     await init_db()
     group_id = 852000000 + (uuid4().int % 100000000)
@@ -280,6 +307,13 @@ async def test_support_bot_no_answer_in_current_scope() -> None:
     assert reply.state == "no_answer"
     assert reply.no_answer_id.startswith("N")
 
+    async with get_session() as session:
+        result = await session.scalars(select(SupportIssueCluster))
+        clusters = list(result)
+
+    assert any(item.no_answer_count >= 1 for item in clusters)
+    assert "未命中" in await service.issue_gaps()
+
 
 @pytest.mark.asyncio
 async def test_support_bot_records_no_answer() -> None:
@@ -296,3 +330,24 @@ async def test_support_bot_records_no_answer() -> None:
     assert item.group_id == group_id
     assert item.user_id == 123
     assert "QInEX" in item.question
+
+
+@pytest.mark.asyncio
+async def test_support_bot_supplement_no_answer_creates_wiki_article() -> None:
+    await init_db()
+    await init_wiki_db()
+    group_id = 875000000 + (uuid4().int % 100000000)
+    service = SupportBotService(Config(), integration_service=FakeIntegration(references=[]))
+
+    reply = await service.handle_user_issue("QInEX 某个补知识测试问题", group_id=group_id, user_id=123)
+    result = await service.supplement_no_answer(
+        reply.no_answer_id,
+        "先确认当前群知识范围包含 FAQ,然后按软件提示检查配置。",
+        author_id=1348984838,
+        group_id=group_id,
+    )
+    hits = await WikiSearchService().search("补知识测试问题", group_id=group_id)
+
+    assert "已补充知识" in result
+    assert hits
+    assert hits[0].article.source_ref_id == reply.no_answer_id

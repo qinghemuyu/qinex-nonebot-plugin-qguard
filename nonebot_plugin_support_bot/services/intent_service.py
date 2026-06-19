@@ -6,6 +6,19 @@ from nonebot_plugin_support_bot.services.schemas import SupportIntent
 
 
 LOW_QUALITY = {"打不开", "用不了", "没反应", "报错了", "不会用", "还是不行", "不行"}
+GENERIC_PROBLEM_TERMS = (
+    "没反应",
+    "用不了",
+    "不行",
+    "不生效",
+    "没效果",
+    "失效",
+    "点不动",
+    "点不了",
+    "卡",
+    "卡顿",
+    "打不开",
+)
 LICENSE_TERMS = ("授权", "激活", "授权码", "注册码", "订单", "退款", "换绑", "破解", "绕过", "密钥")
 BLOCKED_LICENSE_TERMS = ("订单", "退款", "换绑", "破解", "绕过", "密钥", "生成", "算法", "找回", "查询")
 SAFE_ACTIVATION_MARKERS = (
@@ -55,6 +68,20 @@ class IntentService:
             )
         issue_type = self._guess_issue_type(normalized)
         is_usage_query = any(word in normalized for word in ("怎么", "如何", "教程", "配置", "设置"))
+        diagnostic_fields = self._diagnostic_missing_fields(issue_type, normalized)
+        if self._should_ask_diagnostic(text.strip(), normalized, issue_type, is_usage_query, diagnostic_fields):
+            return SupportIntent(
+                intent="diagnostic_followup",
+                confidence=0.68,
+                skill=skill,
+                issue_type=issue_type,
+                need_screenshot=issue_type in {"mapping_not_working", "screenhub_usage", "performance_problem"},
+                need_version=True,
+                need_config=issue_type in {"mapping_not_working", "config_problem"},
+                should_search_wiki=False,
+                reply_strategy="ask_followup",
+                missing_fields=diagnostic_fields,
+            )
         if (normalized in LOW_QUALITY or len(text.strip()) < 8) and not is_usage_query:
             return SupportIntent(
                 intent="collect_info",
@@ -113,6 +140,57 @@ class IntentService:
             return ["P4 现在卡在哪个页面", "手机上有没有出现触点"]
         return ["你用的是哪个功能", "现在卡在哪一步"]
 
+    def _diagnostic_missing_fields(self, issue_type: str, text: str) -> list[str]:
+        if issue_type == "mapping_not_working":
+            fields = []
+            if not _has_device_marker(text):
+                fields.append("你用的是 S3、免硬件 ADB 还是 P4")
+            if not any(word in text for word in ("所有", "全部", "部分", "有些", "按键", "鼠标", "摇杆", "压枪", "连点", "触点")):
+                fields.append("是所有输入没反应，还是只有某个组件/部分按键")
+            return fields or self._missing_fields(issue_type)
+        if issue_type == "performance_problem":
+            fields = []
+            if not any(word in text for word in ("滑屏", "投屏", "按键", "画面", "拖枪", "鼠标", "压枪")):
+                fields.append("卡的是滑屏、投屏画面，还是按键响应")
+            if not _has_device_marker(text):
+                fields.append("你用的是 S3、免硬件 ADB 还是 P4")
+            return fields or self._missing_fields(issue_type)
+        if issue_type == "launch_failed":
+            fields = []
+            if not any(word in text for word in ("空白", "闪退", "打不开", "报错", "webview2", "启动")):
+                fields.append("是打不开、空白、闪退，还是有报错提示")
+            if not any(word in text for word in ("上位机", "pc", "电脑", "配置面板", "手机app", "qinescreen")):
+                fields.append("打不开的是上位机、配置面板还是手机 APP")
+            return fields or self._missing_fields(issue_type)
+        if issue_type == "screenhub_usage":
+            fields = []
+            if not any(word in text for word in ("电脑", "手机", "app", "画面", "控制", "点不准", "卡")):
+                fields.append("是电脑投屏、手机 APP，还是控制模式")
+            if not any(word in text for word in ("卡", "黑屏", "点不准", "连不上", "没画面")):
+                fields.append("现象是画面卡、黑屏、点不准，还是连不上")
+            return fields or self._missing_fields(issue_type)
+        return self._missing_fields(issue_type)
+
+    @staticmethod
+    def _should_ask_diagnostic(
+        original: str,
+        text: str,
+        issue_type: str,
+        is_usage_query: bool,
+        diagnostic_fields: list[str],
+    ) -> bool:
+        if is_usage_query or not diagnostic_fields:
+            return False
+        if issue_type not in {"mapping_not_working", "performance_problem", "launch_failed", "screenhub_usage", "p4_usage"}:
+            return False
+        if any(marker in text for marker in ("wasd", "wa再", "wd再", "按住wa", "按住wd", "斜向", "对角")):
+            return False
+        if len(original) <= 14 and any(term in text for term in GENERIC_PROBLEM_TERMS):
+            return True
+        if len(diagnostic_fields) >= 2 and len(original) <= 18:
+            return True
+        return False
+
 
 def _get_skill_registry() -> ModuleType:
     try:
@@ -140,3 +218,7 @@ def _is_safe_activation_question(text: str) -> bool:
     if "激活" not in text and "授权" not in text and "授权码" not in text and "注册码" not in text:
         return False
     return any(marker in text for marker in SAFE_ACTIVATION_MARKERS)
+
+
+def _has_device_marker(text: str) -> bool:
+    return any(word in text for word in ("s3", "p4", "adb", "免硬件", "硬件", "板子", "数据线", "单机版"))

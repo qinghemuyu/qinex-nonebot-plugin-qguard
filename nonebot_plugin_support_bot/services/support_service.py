@@ -1,9 +1,11 @@
 import json
+from hashlib import sha1
 from datetime import datetime
 
 from nonebot_plugin_support_bot.config import Config, load_config
 from nonebot_plugin_support_bot.models import get_session
 from nonebot_plugin_support_bot.repositories.group_config_repo import SupportGroupConfigRepo
+from nonebot_plugin_support_bot.repositories.issue_cluster_repo import SupportIssueClusterRepo
 from nonebot_plugin_support_bot.repositories.no_answer_repo import SupportNoAnswerRepo
 from nonebot_plugin_support_bot.repositories.session_repo import SupportSessionRepo
 from nonebot_plugin_support_bot.services.harassment_service import HarassmentService
@@ -38,6 +40,7 @@ CONTINUATION_MARKERS = (
 )
 RESET_MARKERS = ("新问题", "另一个问题", "换个问题", "不是这个", "重新问")
 THANKS_MARKERS = ("谢谢", "感谢", "ok", "OK", "好的", "好嘞", "明白", "懂了", "可以了", "解决了")
+SOLVED_MARKERS = ("好了", "好啦", "解决了", "可以了", "恢复了", "能用了", "搞定了", "ok了", "OK了", "没问题了")
 
 
 class SupportBotService:
@@ -70,6 +73,7 @@ class SupportBotService:
             f"骚扰惩罚：{'开' if self.config.support_bot_harassment_enabled else '关'}"
             f"（警告 {self.config.support_bot_harassment_warn_threshold}，积分 {self.config.support_bot_harassment_score_threshold}）\n"
             f"未解决升级：{self.config.support_bot_unresolved_escalation_turns} 轮\n"
+            "反馈学习：开启\n"
             f"软件范围：{self.config.support_bot_software_name}\n"
             "知识范围：由 /知识 范围 控制\n"
             "技能列表：用 /知识 技能 查看"
@@ -116,6 +120,18 @@ class SupportBotService:
         raw_text = text.strip()
         previous_context = await self._recent_context(group_id, user_id)
         question_text = raw_text
+        if previous_context is not None and _looks_like_solved_feedback(raw_text):
+            return await self._finalize_reply(
+                await self._handle_resolved_feedback(
+                    previous_context,
+                    raw_text,
+                    group_id=group_id,
+                    user_id=user_id,
+                ),
+                raw_text,
+                group_id,
+                user_id,
+            )
         if previous_context is not None and _looks_like_continuation(raw_text, previous_context):
             question_text = _build_contextual_question(previous_context, raw_text)
 
@@ -237,6 +253,7 @@ class SupportBotService:
                 previous_context=previous_context,
                 references=references,
             )
+            await self._record_issue_cluster(context, group_id=group_id, user_id=user_id)
             return self._attach_owner_escalation(
                 SupportReply(
                     text=trim_reply(answer, self.config.support_bot_max_reply_length),
@@ -258,6 +275,13 @@ class SupportBotService:
             previous_context=previous_context,
         )
         record_no = await self._record_no_answer(group_id, user_id, text, reason="no_knowledge")
+        await self._record_issue_cluster(
+            context,
+            group_id=group_id,
+            user_id=user_id,
+            no_answer=True,
+            record_no=record_no,
+        )
         return self._attach_owner_escalation(
             SupportReply(
                 text=trim_reply(
@@ -297,6 +321,58 @@ class SupportBotService:
             latest_reply=reply.text,
         )
         return reply
+
+    async def _handle_resolved_feedback(
+        self,
+        previous_context: dict,
+        raw_text: str,
+        *,
+        group_id: int | None,
+        user_id: int,
+    ) -> SupportReply:
+        context = dict(previous_context)
+        context["owner_escalation_notified"] = bool(context.get("owner_escalation_notified"))
+        await self._record_issue_cluster(
+            context,
+            group_id=group_id,
+            user_id=user_id,
+            resolved=True,
+        )
+        await self._save_resolution_session(group_id, user_id, context, raw_text)
+        return SupportReply(
+            text="喵，收到，已把这次处理记为“已解决”。以后类似问题我会更偏向这条排查路线。",
+            state="resolved_feedback",
+        )
+
+    async def _record_issue_cluster(
+        self,
+        context: dict,
+        *,
+        group_id: int | None,
+        user_id: int,
+        no_answer: bool = False,
+        unresolved: bool = False,
+        resolved: bool = False,
+        record_no: str = "",
+    ) -> None:
+        cluster_key = str(context.get("cluster_key") or "").strip()
+        if not cluster_key:
+            return
+        async with get_session() as session:
+            await SupportIssueClusterRepo(session).record(
+                cluster_key=cluster_key,
+                title=str(context.get("cluster_title") or context.get("issue_started_text") or "未知问题"),
+                skill=str(context.get("skill") or "unknown"),
+                issue_type=str(context.get("issue_type") or "unknown"),
+                question=str(context.get("issue_started_text") or context.get("text") or ""),
+                group_id=int(group_id or 0),
+                user_id=user_id,
+                no_answer=no_answer,
+                unresolved=unresolved,
+                resolved=resolved,
+                record_no=record_no,
+            )
+            await session.commit()
 
     async def _finalize_reply(
         self,
@@ -400,6 +476,7 @@ class SupportBotService:
         if group_id is None:
             return
         now = datetime.utcnow()
+        context: dict | None = None
         async with get_session() as session:
             item = await SupportSessionRepo(session).get_active(int(group_id), user_id, now)
             if item is None:
@@ -413,12 +490,105 @@ class SupportBotService:
             context["owner_escalation_notified"] = True
             item.context_json = json.dumps(context, ensure_ascii=False)
             await session.commit()
+        await self._record_issue_cluster(context, group_id=group_id, user_id=user_id, unresolved=True)
+
+    async def _save_resolution_session(
+        self,
+        group_id: int | None,
+        user_id: int,
+        previous_context: dict,
+        raw_text: str,
+    ) -> None:
+        context = dict(previous_context)
+        turns = context.get("turns")
+        if not isinstance(turns, list):
+            turns = []
+        turns = [turn for turn in turns if isinstance(turn, dict)][-9:]
+        turns.append({"state": "resolved_feedback", "user": raw_text[:500], "question": raw_text[:500], "references": []})
+        context["turns"] = turns[-10:]
+        context["latest_user_text"] = raw_text[:500]
+        context["resolved"] = True
+        context["owner_escalation_notified"] = bool(context.get("owner_escalation_notified"))
+        async with get_session() as session:
+            await SupportSessionRepo(session).upsert(
+                group_id=int(group_id or 0),
+                user_id=user_id,
+                state="resolved_feedback",
+                intent=str(context.get("_intent") or "resolved_feedback"),
+                context_json=json.dumps(context, ensure_ascii=False),
+                ttl_seconds=self.config.support_bot_session_ttl_seconds,
+            )
+            await session.commit()
+
+    async def issue_gaps(self, limit: int = 5) -> str:
+        async with get_session() as session:
+            clusters = await SupportIssueClusterRepo(session).list_hot(limit=limit)
+        if not clusters:
+            return "暂无智能问答缺口记录。"
+        lines = ["QInEX 智能问答缺口 TOP"]
+        for index, item in enumerate(clusters, start=1):
+            lines.append(
+                f"{index}. {item.title or item.example_question[:30]}\n"
+                f"   分类：{item.skill}/{item.issue_type}，出现 {item.occurrence_count}，未命中 {item.no_answer_count}，未解决 {item.unresolved_count}，已解决 {item.resolved_count}"
+            )
+            if item.last_record_no:
+                lines.append(f"   最近记录：{item.last_record_no}，可用 /客服 补知识 {item.last_record_no} 答案内容")
+        return "\n".join(lines)
+
+    async def supplement_no_answer(
+        self,
+        record_no: str,
+        answer: str,
+        *,
+        author_id: int | None,
+        group_id: int | None = None,
+    ) -> str:
+        normalized_record_no = record_no.strip().upper()
+        answer = answer.strip()
+        if not normalized_record_no or not answer:
+            return "用法：/客服 补知识 N000001 答案内容"
+        async with get_session() as session:
+            item = await SupportNoAnswerRepo(session).get_by_record_no(normalized_record_no)
+            if item is None:
+                return "没有找到这条未命中记录。"
+            question = item.question
+            item.notified_owner = True
+            item.updated_at = datetime.utcnow()
+            await session.commit()
+        try:
+            from nonebot_plugin_group_wiki.services.article_service import GroupWikiService
+        except ModuleNotFoundError as exc:
+            if exc.name and not exc.name.startswith("nonebot_plugin_group_wiki"):
+                raise
+            return "知识库插件未加载，暂时不能补知识。"
+
+        title = _title_from_question(question)
+        content = (
+            f"## 用户常见问法\n{question.strip()[:1200]}\n\n"
+            f"## 推荐回答\n{answer[:3000]}\n\n"
+            "## 回复边界\n"
+            "只按这里的公开使用步骤回答，不展开授权码、密钥、算法或内部实现细节。"
+        )
+        article = await GroupWikiService().add_article(
+            title=title,
+            content=content,
+            group_id=group_id,
+            author_id=author_id,
+            scope="global",
+            source_type="support_no_answer",
+            source_ref_id=normalized_record_no,
+            category="FAQ问答对",
+            summary=answer[:180],
+        )
+        return f"已补充知识：[{article.article_no}] {article.title}\n建议执行 /知识 搜索 {title[:20]} 验证命中。"
 
 
 def _looks_like_continuation(text: str, previous_context: dict | None = None) -> bool:
     stripped = text.strip()
     if not stripped:
         return False
+    if _looks_like_solved_feedback(stripped):
+        return True
     normalized = stripped.lower()
     if any(marker in stripped for marker in RESET_MARKERS):
         return False
@@ -454,6 +624,8 @@ def _could_be_continuation_candidate(text: str) -> bool:
     stripped = text.strip()
     if not stripped or any(marker in stripped for marker in RESET_MARKERS):
         return False
+    if _looks_like_solved_feedback(stripped):
+        return True
     normalized = stripped.lower()
     if stripped in THANKS_MARKERS or normalized in {marker.lower() for marker in THANKS_MARKERS}:
         return False
@@ -480,6 +652,14 @@ def _could_be_continuation_candidate(text: str) -> bool:
         "版本",
     )
     return len(stripped) <= 30 and any(marker in normalized for marker in quick_markers)
+
+
+def _looks_like_solved_feedback(text: str) -> bool:
+    stripped = text.strip()
+    normalized = stripped.lower()
+    return any(marker in stripped for marker in SOLVED_MARKERS) or any(
+        marker.lower() in normalized for marker in SOLVED_MARKERS
+    )
 
 
 def _build_contextual_question(previous_context: dict, user_text: str) -> str:
@@ -531,6 +711,7 @@ def _build_session_context(
                 :1000
             ]
             owner_escalation_notified = bool(previous_context.get("owner_escalation_notified"))
+    cluster_key, cluster_title = _build_issue_cluster(intent, issue_started_text)
     turns.append(
         {
             "state": state,
@@ -548,8 +729,69 @@ def _build_session_context(
         "turns": turns[-10:],
         "issue_turn_count": issue_turn_count,
         "issue_started_text": issue_started_text,
+        "cluster_key": cluster_key,
+        "cluster_title": cluster_title,
         "owner_escalation_notified": owner_escalation_notified,
     }
+
+
+ISSUE_CLUSTER_ANCHORS = (
+    "校准",
+    "触摸校准",
+    "坐标",
+    "黑边",
+    "分辨率",
+    "部分按键",
+    "按键",
+    "鼠标",
+    "摇杆",
+    "wasd",
+    "滑屏",
+    "卡顿",
+    "掉帧",
+    "投屏",
+    "screenhub",
+    "qinescreen",
+    "p4",
+    "s3",
+    "adb",
+    "免硬件",
+    "压枪",
+    "连点",
+    "开镜",
+    "激活",
+    "打不开",
+    "闪退",
+    "webview2",
+    "没反应",
+    "不生效",
+    "失效",
+    "点不准",
+)
+
+
+def _build_issue_cluster(intent: SupportIntent, text: str) -> tuple[str, str]:
+    normalized = text.lower()
+    anchors = [anchor for anchor in ISSUE_CLUSTER_ANCHORS if anchor.lower() in normalized]
+    if not anchors:
+        compact = "".join(ch.lower() for ch in text if ch.isalnum() or "\u4e00" <= ch <= "\u9fff")
+        digest = sha1(compact[:120].encode("utf-8")).hexdigest()[:10] if compact else "unknown"
+        anchors = [digest]
+    anchors = anchors[:4]
+    issue_type = intent.issue_type or "unknown"
+    skill = intent.skill or "unknown"
+    cluster_key = f"{skill}:{issue_type}:{'|'.join(anchors)}"
+    title = " / ".join(anchors)
+    if title.startswith("unknown") or len(title) < 4:
+        title = _title_from_question(text)
+    return cluster_key[:128], title[:80]
+
+
+def _title_from_question(text: str) -> str:
+    compact = " ".join(text.strip().split())
+    if not compact:
+        return "未命中问题补充"
+    return compact[:40]
 
 
 def _is_same_issue(intent: SupportIntent, user_text: str, previous_context: dict | None) -> bool:
