@@ -86,6 +86,8 @@ def test_qinex_skill_registry() -> None:
     assert mapping_rejected == []
     assert support_rejected == []
     assert match_skill_id("P4 单机版怎么用手机配置") == "qinex_p4"
+    assert match_skill_id("P4 上位机模式怎么切回单机") == "qinex_p4"
+    assert match_skill_id("ModeB 8000Hz 为什么一卡一卡") == "qinex_p4"
     assert match_skill_id("S3板子要怎么激活") == "qinex_activation"
     assert match_skill_id("最新版上位机有时候一卡一卡的") == "qinex_troubleshooting"
     assert match_skill_id("上位机是什么意思") == "qinex_terms"
@@ -163,6 +165,17 @@ def test_expand_search_query_for_common_support_phrases() -> None:
     assert "参考分辨率" in calibration
     assert "黑边" in calibration
     assert "坐标偏移" in calibration
+
+
+def test_expand_search_query_for_p4_modes() -> None:
+    mode_b = expand_search_query("P4 上位机 ModeB 8000Hz 有点卡")
+    mode_a = expand_search_query("P4 单机键鼠插板子没识别")
+
+    assert "Mode B" in mode_b
+    assert "硬件 serial" in mode_b
+    assert "8000Hz" in mode_b
+    assert "Mode A" in mode_a
+    assert "板载配置页" in mode_a
 
 
 @pytest.mark.asyncio

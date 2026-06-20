@@ -12,6 +12,15 @@ from nonebot_plugin_group_wiki.utils.rerank import SearchHit, score_article
 
 _QUERY_EXPANSIONS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("上位机", "pc端", "pc 端", "电脑端", "电脑程序", "pc客户端", "电脑版"), "QInEX 映射软件 PC端 电脑端 配置面板 上位机"),
+    (
+        ("p4上位机", "p4 上位机", "modeb", "mode b", "p4 mode b", "p4当s3", "p4 当 s3", "p4串口", "p4 串口"),
+        "P4 上位机模式 Mode B 硬件 serial COM 串口 下位机 触摸桥 USB HS 8000Hz",
+    ),
+    (
+        ("p4单机", "p4 单机", "modea", "mode a", "p4 mode a", "键鼠插p4", "键鼠直插", "不开电脑"),
+        "P4 单机模式 Mode A 板载配置页 QInEX-P4-Config 输入监控 导入配置",
+    ),
+    (("p4切换", "切mode", "切 mode", "切回单机", "切上位机", "ota切换"), "P4 Mode A Mode B OTA 切换 固件 eco2 eco6"),
     (("配置页", "配置面板", "布键页面", "拖键页面", "web ui"), "配置面板 WebView2 保存配置 布键 工作模式"),
     (("一卡一卡", "卡一卡", "卡卡", "一顿一顿", "忽快忽慢"), "卡顿 掉帧 延迟 回报率 异步 CPU 出帧"),
     (("掉帧", "丢帧", "卡帧"), "卡顿 延迟 回报率 CPU 出帧"),
