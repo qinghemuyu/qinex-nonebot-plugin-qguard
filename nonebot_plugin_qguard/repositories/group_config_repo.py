@@ -43,6 +43,8 @@ class GroupConfigRepo:
             "join_review_enabled": False,
             "join_review_answer": "",
             "join_review_reject_reason": "入群验证未通过。",
+            "join_welcome_enabled": False,
+            "join_welcome_template": "",
             "card_lock_enabled": True,
             "group_name_lock_enabled": False,
             "locked_group_name": "",
@@ -156,6 +158,18 @@ class GroupConfigRepo:
     async def set_join_review_reject_reason(self, group_id: int, reason: str) -> GroupConfig:
         config = await self.get_or_create(group_id)
         config.join_review_reject_reason = reason
+        await self.session.flush()
+        return config
+
+    async def set_join_welcome_enabled(self, group_id: int, enabled: bool) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.join_welcome_enabled = enabled
+        await self.session.flush()
+        return config
+
+    async def set_join_welcome_template(self, group_id: int, template: str) -> GroupConfig:
+        config = await self.get_or_create(group_id)
+        config.join_welcome_template = template
         await self.session.flush()
         return config
 

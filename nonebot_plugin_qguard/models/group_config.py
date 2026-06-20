@@ -19,6 +19,8 @@ class GroupConfig(TimestampMixin, Base):
     join_review_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     join_review_answer: Mapped[str] = mapped_column(Text, default="", nullable=False)
     join_review_reject_reason: Mapped[str] = mapped_column(Text, default="入群验证未通过。", nullable=False)
+    join_welcome_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    join_welcome_template: Mapped[str] = mapped_column(Text, default="", nullable=False)
     card_lock_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     group_name_lock_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     locked_group_name: Mapped[str] = mapped_column(Text, default="", nullable=False)

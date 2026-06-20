@@ -146,6 +146,18 @@ async def _migrate_sqlite_schema(conn: AsyncConnection) -> None:
     await _add_sqlite_column_if_missing(
         conn,
         "group_config",
+        "join_welcome_enabled",
+        "BOOLEAN NOT NULL DEFAULT 0",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "group_config",
+        "join_welcome_template",
+        "TEXT NOT NULL DEFAULT ''",
+    )
+    await _add_sqlite_column_if_missing(
+        conn,
+        "group_config",
         "locked_group_name",
         "TEXT NOT NULL DEFAULT ''",
     )

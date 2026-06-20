@@ -40,6 +40,8 @@ def test_help_text_mentions_rule_commands() -> None:
     assert "/管 角色查 @用户" in HELP_TEXT
     assert "/管 入群审核 开" in HELP_TEXT
     assert "/管 入群暗号 设置 xxx" in HELP_TEXT
+    assert "/管 入群欢迎 开" in HELP_TEXT
+    assert "/管 入群欢迎 模板 文本" in HELP_TEXT
     assert "/管 日志 @用户" in HELP_TEXT
     assert "/管 名片日志 @用户" in HELP_TEXT
     assert "/管 处罚日志 @用户" in HELP_TEXT
