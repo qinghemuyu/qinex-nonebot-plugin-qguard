@@ -24,6 +24,22 @@ class LicenseBotService:
                 "remark": "QQ 机器人自助登记",
             },
         )
+        try:
+            preflight = await self.check_device(mac=mac, product="s3")
+        except LicenseAPIError as exc:
+            raise LicenseAPIError(
+                f"S3 已登记，但在线激活预检失败：{exc.message}",
+                data=exc.data or data,
+                status_code=exc.status_code,
+            ) from exc
+        if not preflight.get("authorized"):
+            raise LicenseAPIError(
+                f"S3 已登记，但在线激活预检未通过：{preflight.get('message', '未知原因')}",
+                data=preflight,
+                status_code=409,
+            )
+        data["activation_ready"] = True
+        data["preflight"] = preflight
         return format_bind_result(data)
 
     async def account_status(self, qq: int | str) -> str:
@@ -60,6 +76,15 @@ class LicenseBotService:
         action_label = {"解绑": "解绑", "禁用": "禁用", "恢复": "恢复"}[action]
         return f"设备已{action_label}：{data.get('mac', '')}"
 
+    async def check_device(self, *, mac: str, product: str = "s3") -> dict:
+        data = await self.client.post("/internal/bot/device/check", {"mac": mac, "product": product})
+        data["message"] = "在线激活预检通过"
+        return data
+
+    async def check_device_text(self, *, mac: str, product: str = "s3") -> str:
+        data = await self.check_device(mac=mac, product=product)
+        return format_device_check(data)
+
     async def legacy_sync(self, *, execute: bool, operator_id: int | None) -> str:
         data = await self.client.post(
             "/internal/bot/legacy-sync",
@@ -80,10 +105,12 @@ class LicenseBotService:
 
 def format_bind_result(data: dict) -> str:
     prefix = "这块 S3 已经登记过。" if data.get("already_bound") else "S3 板子已登记。"
+    ready = "通过" if data.get("activation_ready") else "未确认"
     return (
         f"{prefix}\n"
         f"设备：{data.get('mac', '')}\n"
-        f"额度：{data.get('used', 0)}/{data.get('quota_total', 0)}\n\n"
+        f"额度：{data.get('used', 0)}/{data.get('quota_total', 0)}\n"
+        f"在线激活预检：{ready}\n\n"
         "现在去板子配置页点击“在线激活”。\n"
         f"{MAC_SOURCE_TIP}"
     )
@@ -108,6 +135,18 @@ def format_account_status(data: dict) -> str:
     lines.append("")
     lines.append(MAC_SOURCE_TIP)
     return "\n".join(lines)
+
+
+def format_device_check(data: dict) -> str:
+    source = data.get("source") or "-"
+    product = str(data.get("product") or "s3").upper()
+    return (
+        f"在线激活预检通过。\n"
+        f"设备：{data.get('mac', '')}\n"
+        f"产品：{product}\n"
+        f"来源：{source}\n\n"
+        f"{MAC_SOURCE_TIP}"
+    )
 
 
 def parse_quota_args(text: str) -> tuple[str, int] | None:

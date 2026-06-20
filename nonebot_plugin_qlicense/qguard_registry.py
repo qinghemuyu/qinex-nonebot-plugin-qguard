@@ -30,6 +30,7 @@ def get_qguard_descriptor() -> PluginDescriptor:
             _cmd("/授权 解绑 MAC", "解绑并停用设备", QGuardRole.SUPER_ADMIN),
             _cmd("/授权 禁用 MAC", "禁用设备", QGuardRole.SUPER_ADMIN),
             _cmd("/授权 恢复 MAC", "恢复设备", QGuardRole.SUPER_ADMIN),
+            _cmd("/授权 预检 MAC", "预检设备能否在线激活", QGuardRole.SUPER_ADMIN),
             _cmd("/授权 同步预览", "预览 description 历史 QQ 同步", QGuardRole.SUPER_ADMIN),
             _cmd("/授权 同步执行", "执行 description 历史 QQ 同步", QGuardRole.SUPER_ADMIN),
         ),

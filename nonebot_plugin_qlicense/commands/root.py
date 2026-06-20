@@ -24,6 +24,7 @@ HELP_TEXT = f"""QLicense 命令
 /授权 解绑 MAC
 /授权 禁用 MAC
 /授权 恢复 MAC
+/授权 预检 MAC
 /授权 同步预览
 /授权 同步执行
 
@@ -111,6 +112,11 @@ async def _handle_admin(bot: Bot, event: MessageEvent, service: LicenseBotServic
         if not mac:
             await finish_reply(license_matcher, bot, event, f"用法：/授权 {action} MAC")
         await finish_reply(license_matcher, bot, event, await service.change_device(mac=mac, action=action, operator_id=event.user_id))
+    if action == "预检":
+        mac = extract_mac(args_text)
+        if not mac:
+            await finish_reply(license_matcher, bot, event, "用法：/授权 预检 MAC")
+        await finish_reply(license_matcher, bot, event, await service.check_device_text(mac=mac, product="s3"))
     if action == "同步预览":
         await finish_reply(license_matcher, bot, event, await service.legacy_sync(execute=False, operator_id=event.user_id))
     if action == "同步执行":
