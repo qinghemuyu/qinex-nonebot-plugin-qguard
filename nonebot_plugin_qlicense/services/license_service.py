@@ -78,7 +78,7 @@ class LicenseBotService:
 
     async def check_device(self, *, mac: str, product: str = "s3") -> dict:
         data = await self.client.post("/internal/bot/device/check", {"mac": mac, "product": product})
-        data["message"] = "在线激活预检通过"
+        data.setdefault("message", "在线激活预检通过")
         return data
 
     async def check_device_text(self, *, mac: str, product: str = "s3") -> str:
