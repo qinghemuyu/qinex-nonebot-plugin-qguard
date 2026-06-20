@@ -8,6 +8,10 @@ from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.repositories.ad_keyword_repo import AdKeywordRepo
 from nonebot_plugin_qguard.repositories.group_config_repo import GroupConfigRepo
 from nonebot_plugin_qguard.repositories.rule_repo import RuleRepo
+from nonebot_plugin_qguard.services.ad_keyword_defaults import (
+    DEFAULT_AD_KEYWORD_OPERATOR_ID,
+    DEFAULT_AD_KEYWORDS,
+)
 from nonebot_plugin_qguard.services.anti_ad_service import AntiAdService
 from nonebot_plugin_qguard.services.anti_spam_service import AntiSpamService
 
@@ -44,8 +48,17 @@ class RuleEngine:
             anti_ad_enabled = config.anti_ad_enabled
             anti_spam_enabled = config.anti_spam_enabled
             keyword_check_enabled = config.keyword_check_enabled
+            keyword_repo = AdKeywordRepo(session)
+            if anti_ad_enabled:
+                added_keywords = await keyword_repo.add_missing(
+                    context.group_id,
+                    DEFAULT_AD_KEYWORDS,
+                    DEFAULT_AD_KEYWORD_OPERATOR_ID,
+                )
+                if added_keywords:
+                    await session.commit()
             ad_keywords = (
-                [item.keyword for item in await AdKeywordRepo(session).list_enabled(context.group_id)]
+                [item.keyword for item in await keyword_repo.list_enabled(context.group_id)]
                 if anti_ad_enabled
                 else []
             )

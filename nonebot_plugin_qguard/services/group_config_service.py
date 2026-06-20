@@ -1,7 +1,12 @@
 from nonebot_plugin_qguard.enums import AuditAction, AuditResult
 from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.repositories.audit_log_repo import AuditLogRepo
+from nonebot_plugin_qguard.repositories.ad_keyword_repo import AdKeywordRepo
 from nonebot_plugin_qguard.repositories.group_config_repo import GroupConfigRepo
+from nonebot_plugin_qguard.services.ad_keyword_defaults import (
+    DEFAULT_AD_KEYWORD_OPERATOR_ID,
+    DEFAULT_AD_KEYWORDS,
+)
 from nonebot_plugin_qguard.services.auto_recall_service import (
     format_auto_recall_categories,
     serialize_auto_recall_categories,
@@ -99,18 +104,28 @@ class GroupConfigService:
     async def set_anti_ad_enabled(self, group_id: int, operator_id: int, enabled: bool) -> ActionResult:
         async with get_session() as session:
             config = await GroupConfigRepo(session).set_anti_ad_enabled(group_id, enabled)
+            added_keywords = 0
+            if enabled:
+                added_keywords = await AdKeywordRepo(session).add_missing(
+                    group_id,
+                    DEFAULT_AD_KEYWORDS,
+                    DEFAULT_AD_KEYWORD_OPERATOR_ID,
+                )
             await AuditLogRepo(session).create(
                 group_id=group_id,
                 operator_id=operator_id,
                 action=AuditAction.SET_ANTI_AD,
                 result=AuditResult.SUCCESS,
-                metadata={"anti_ad_enabled": enabled},
+                metadata={"anti_ad_enabled": enabled, "default_ad_keywords_added": added_keywords},
             )
             await session.commit()
+            message = f"广告检测已{'开启' if config.anti_ad_enabled else '关闭'}。"
+            if enabled and added_keywords:
+                message += f" 已自动导入默认广告词 {added_keywords} 条。"
             return ActionResult(
                 success=True,
                 action=str(AuditAction.SET_ANTI_AD),
-                message=f"广告检测已{'开启' if config.anti_ad_enabled else '关闭'}。",
+                message=message,
             )
 
     async def set_anti_spam_enabled(self, group_id: int, operator_id: int, enabled: bool) -> ActionResult:

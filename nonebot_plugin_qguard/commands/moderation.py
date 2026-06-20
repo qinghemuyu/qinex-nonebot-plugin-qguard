@@ -48,7 +48,7 @@ async def _handle_ad_keyword(bot: Bot, event: GroupMessageEvent, args: list[str]
             moderation_matcher,
             bot,
             event,
-            "用法：/管 广告词 添加 xxx，/管 广告词 删除 ID，/管 广告词 列表",
+            "用法：/管 广告词 添加 xxx，/管 广告词 删除 ID，/管 广告词 列表 [页码]",
         )
 
     if args[1] == "添加":
@@ -73,10 +73,16 @@ async def _handle_ad_keyword(bot: Bot, event: GroupMessageEvent, args: list[str]
         denied = await ensure_manager(bot, event, QGuardRole.TRUSTED, command_selector="/管 广告词 列表")
         if denied:
             await finish_reply(moderation_matcher, bot, event, denied)
-        items = await service.list(event.group_id)
+        if len(args) >= 3 and not args[2].isdigit():
+            await finish_reply(moderation_matcher, bot, event, "用法：/管 广告词 列表 [页码]")
+        page_size = 40
+        page = max(1, int(args[2])) if len(args) >= 3 else 1
+        total = await service.count(event.group_id)
+        items = await service.list(event.group_id, limit=page_size, offset=(page - 1) * page_size)
         if not items:
             await finish_reply(moderation_matcher, bot, event, "当前没有广告词。")
-        lines = ["广告词列表："]
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        lines = [f"广告词列表（第 {page}/{total_pages} 页，共 {total} 条）："]
         for item in items:
             status = "启用" if item.enabled else "停用"
             lines.append(f"#{item.id} [{status}] {item.keyword}")
@@ -86,5 +92,5 @@ async def _handle_ad_keyword(bot: Bot, event: GroupMessageEvent, args: list[str]
         moderation_matcher,
         bot,
         event,
-        "用法：/管 广告词 添加 xxx，/管 广告词 删除 ID，/管 广告词 列表",
+        "用法：/管 广告词 添加 xxx，/管 广告词 删除 ID，/管 广告词 列表 [页码]",
     )

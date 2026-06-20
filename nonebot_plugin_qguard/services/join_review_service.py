@@ -10,6 +10,10 @@ from nonebot_plugin_qguard.repositories.ad_keyword_repo import AdKeywordRepo
 from nonebot_plugin_qguard.repositories.audit_log_repo import AuditLogRepo
 from nonebot_plugin_qguard.repositories.blacklist_repo import BlacklistRepo
 from nonebot_plugin_qguard.repositories.group_config_repo import GroupConfigRepo
+from nonebot_plugin_qguard.services.ad_keyword_defaults import (
+    DEFAULT_AD_KEYWORD_OPERATOR_ID,
+    DEFAULT_AD_KEYWORDS,
+)
 from nonebot_plugin_qguard.services.anti_ad_service import AntiAdService
 from nonebot_plugin_qguard.services.result import ActionResult
 
@@ -160,7 +164,15 @@ class JoinReviewService:
                     metadata={"reason_type": "empty", "comment": comment_text},
                 )
 
-            ad_keywords = [item.keyword for item in await AdKeywordRepo(session).list_enabled(group_id)]
+            keyword_repo = AdKeywordRepo(session)
+            added_keywords = await keyword_repo.add_missing(
+                group_id,
+                DEFAULT_AD_KEYWORDS,
+                DEFAULT_AD_KEYWORD_OPERATOR_ID,
+            )
+            if added_keywords:
+                await session.commit()
+            ad_keywords = [item.keyword for item in await keyword_repo.list_enabled(group_id)]
             ad_decision = AntiAdService().check(
                 comment_text,
                 link_count=comment_text.count("http://") + comment_text.count("https://"),

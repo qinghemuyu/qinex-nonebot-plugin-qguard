@@ -108,7 +108,7 @@ def get_qguard_descriptor() -> PluginDescriptor:
         _cmd("/管 广告检测 关", "关闭广告检测", QGuardRole.GROUP_ADMIN, danger_level=1),
         _cmd("/管 广告词 添加 xxx", "添加广告词", QGuardRole.GROUP_ADMIN, danger_level=1),
         _cmd("/管 广告词 删除 ID", "删除广告词", QGuardRole.GROUP_ADMIN, danger_level=1),
-        _cmd("/管 广告词 列表", "查看广告词列表", QGuardRole.TRUSTED),
+        _cmd("/管 广告词 列表", "分页查看广告词列表", QGuardRole.TRUSTED),
         _cmd("/管 刷屏检测 开", "开启刷屏检测", QGuardRole.GROUP_ADMIN, danger_level=1),
         _cmd("/管 刷屏检测 关", "关闭刷屏检测", QGuardRole.GROUP_ADMIN, danger_level=1),
         _cmd("/管 白名单 添加 @用户 原因", "加入白名单", QGuardRole.GROUP_OWNER, danger_level=1),
