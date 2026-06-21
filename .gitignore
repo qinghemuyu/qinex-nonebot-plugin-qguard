@@ -13,7 +13,10 @@ venv/
 env/
 
 .env
+.env.*
 !.env.example
+*.log
+logs/
 
 data/
 *.db
@@ -23,6 +26,11 @@ data/
 *.egg-info/
 dist/
 build/
+*.zip
+*.tar.gz
+*.pem
+*.key
+*.crt
 
 QGuard_OneBot_v11_详细开发设计_AI提示词.md
 NoneBot_AI_*.md

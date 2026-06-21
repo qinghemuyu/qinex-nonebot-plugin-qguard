@@ -1,388 +1,90 @@
 # nonebot-plugin-qguard
 
-QGuard 是一个基于 NoneBot 2 + OneBot v11 的 QQ 群安全管理插件，面向长期运行的群管场景，提供人工群管、名片锁、自动审核、新人保护、入群审核、群设置保护、审计日志和定时巡检。
+QGuard 是一组基于 NoneBot 2 + OneBot v11 的 QQ 群管理与 QInEX 智能问答插件。仓库包含群管、知识库问答、AI Core、词云、授权登记等模块，适合长期运行在 QQ 群里的售后/社群机器人。
 
-## 功能
+## 功能概览
 
-- 基础群管：帮助、状态、开启/关闭、禁言、解禁、踢人、踢黑、警告、撤回、查用户。
-- 权限系统：普通成员、可信用户、小管理、群管理员、群主、超级管理员。
-- 群名片：设置名片、清空名片、查询名片。
-- 群名片锁：锁定、解锁、列表、扫描、修复、发言兜底检查、自动巡检。
-- 自动审核：关键词、正则、广告检测、可配置广告词、刷屏检测、违规积分和分级处罚。
-- 新人保护：新人时长、链接拦截、图片拦截。
-- 加群审核：入群暗号、拒绝理由、本群/全局黑名单自动拒绝、空理由/广告/重复申请拦截、入群欢迎。
-- 群设置保护：群名锁、匿名锁、头衔设置、综合巡检、自动巡检。
-- 群管设置：全体禁言开关、机器人回复按指令/聊天分类自动撤回、长期未活跃自动清理。
-- 消息缓存：缓存群消息，支持最近消息、单条消息查询和误判复盘。
-- 审计日志：人工操作、自动操作、失败、跳过都会写入 `audit_log`。
-- QInEX 智能问答：AI Core 统一接入 DeepSeek，GroupWiki 管理 QInEX 知识库，QInEX AnswerBot 按群级知识范围和 skills 回答。
+- `nonebot_plugin_qguard`：群管主插件，提供权限、禁言、踢人、撤回、名片锁、入群审核、新人保护、广告检测、刷屏检测、自动巡检、自动清理、审计日志。
+- `nonebot_plugin_ai_core`：OpenAI-compatible AI 接入层，支持 DeepSeek、OpenAI 兼容网关和 Ollama 兼容服务。
+- `nonebot_plugin_group_wiki`：Markdown 知识库导入、检索、群级知识范围和 skills。
+- `nonebot_plugin_support_bot`：QInEX 专属智能问答入口，支持 `/求助`、`/售后`、`/不会用` 和 @机器人自然语言提问。
+- `nonebot_plugin_qfun`：群娱乐/统计能力，目前包含消息词云和每日定时发送。
+- `nonebot_plugin_qlicense`：S3/P4 板子自助登记、QQ 配额和授权服务联动。
+- `nonebot_plugin_log_doctor`：开发侧日志诊断底座，当前不默认暴露用户命令。
 
-## 安装
+## 文档
+
+- [部署与升级](docs/DEPLOYMENT.md)
+- [配置说明](docs/CONFIGURATION.md)
+- [命令索引](docs/COMMANDS.md)
+- [架构说明](docs/ARCHITECTURE.md)
+- [开源检查清单](docs/OPEN_SOURCE_CHECKLIST.md)
+- [开发路线](PROGRESS.md)
+- [AI 问答进度](AI_SUPPORT_PROGRESS.md)
+
+## 快速安装
 
 ```bash
-pip install -e .
+git clone https://github.com/qinghemuyu/qinex-nonebot-plugin-qguard.git
+cd qinex-nonebot-plugin-qguard
+python3 -m pip install -e . --no-build-isolation
 ```
 
-## 配置
+如果你的 NoneBot 项目使用 `plugin_dirs = ["src/qinex/plugins"]` 这种本地插件目录方式，可以把各插件目录复制到项目的插件目录中加载。完整服务器升级命令见 [部署与升级](docs/DEPLOYMENT.md)。
 
-复制 `.env.example` 到你的 NoneBot 项目 `.env`，按需修改：
+## 最小配置
+
+复制 `.env.example` 到你的 NoneBot 项目 `.env`，至少修改这些值：
 
 ```env
-QGUARD_DB_URL=sqlite+aiosqlite:///./data/qguard.db
 QGUARD_SUPER_ADMINS=[1348984838]
 QGUARD_COMMAND_PREFIX=/管
 
+AI_CORE_PROVIDER=deepseek
+AI_CORE_BASE_URL=https://api.deepseek.com
 AI_CORE_API_KEY=sk-change-me
 AI_CORE_MODEL=deepseek-chat
 
-GROUP_WIKI_DB_URL=sqlite+aiosqlite:///./data/group_wiki.db
 GROUP_WIKI_IMPORT_DIR=./知识库
-GROUP_WIKI_SOFTWARE_NAME=QInEX
-
-SUPPORT_BOT_DB_URL=sqlite+aiosqlite:///./data/support_bot.db
-SUPPORT_BOT_ENABLED=true
-SUPPORT_BOT_TRIGGER_MODE=command
-SUPPORT_BOT_ENABLE_SMART_LISTEN=false
 SUPPORT_BOT_ADMINS=[1348984838]
 ```
 
-## OneBot v11 连接方式
+`1348984838` 是示例主人 QQ，公开部署或二次开发时请改成自己的 QQ。更多环境变量见 [配置说明](docs/CONFIGURATION.md)。
 
-QGuard 第一阶段只支持 OneBot v11。NoneBot 项目需要启用 `nonebot-adapter-onebot`，并让协议端通过反向 WebSocket 连接到 NoneBot，例如：
+## OneBot v11 连接
+
+NoneBot 需要启用 `nonebot-adapter-onebot`，协议端通过反向 WebSocket 连接到 NoneBot，例如：
 
 ```text
 ws://127.0.0.1:8080/onebot/v11/ws
 ```
 
-插件加载推荐使用本地插件目录：把 `nonebot_plugin_qguard` 目录复制到 NoneBot 项目已经配置的 `plugin_dirs` 下，例如：
+不要把 `plugin_dirs` 里的插件目录软链接到项目外部路径。NoneBot 会按真实路径解析本地插件模块名，软链接到项目外时可能启动失败。
+
+## 知识库
+
+仓库内 `知识库/` 是 QInEX 映射软件的公开使用文档，可由 GroupWiki 导入后参与智能问答。知识库不包含授权算法、密钥、源码实现或绕过方式。部署时把 `知识库` 目录复制到 NoneBot 项目根目录，或用 `GROUP_WIKI_IMPORT_DIR` 指向它，然后执行：
 
 ```text
-src/qinex/plugins/nonebot_plugin_qguard
-```
-
-不要把 `plugin_dirs` 里的插件目录软链接到项目外部路径，NoneBot 在解析本地插件模块名时可能会因为真实路径不在项目目录内而启动失败。
-
-## 命令列表
-
-```text
-/管 帮助
-/管 状态
-/管 插件
-/管 插件 状态
-/管 插件 状态 插件ID
-/管 插件 帮助 插件ID
-/管 插件 开 插件ID
-/管 插件 关 插件ID
-/管 插件 权限 插件ID 命令 角色
-/管 开启
-/管 关闭
-/管 自动撤回 90s
-/管 自动撤回 0
-/管 自动撤回 分类 指令|聊天|全部|关闭
-/管 自动清理 状态
-/管 自动清理 开
-/管 自动清理 关
-/管 自动清理 提醒 30d 60d
-/管 自动清理 踢出 90d
-/管 自动清理 间隔 1d
-/管 自动清理 执行
-
-/管 禁 @用户 10m 原因
-/管 解禁 @用户
-/管 踢 @用户 原因
-/管 踢黑 @用户 原因
-/管 警告 @用户 原因
-/管 撤回
-/管 撤回 数量
-/管 查 @用户
-
-/管 角色 @用户 普通|可信|小管理
-/管 角色查 @用户
-/管 白名单 添加 @用户 原因
-/管 白名单 删除 @用户
-/管 白名单 列表
-/管 黑名单 添加 @用户 原因
-/管 黑名单 删除 @用户
-/管 黑名单 列表
-/管 黑名单 全局添加 @用户 原因
-/管 黑名单 全局删除 @用户
-/管 黑名单 全局列表
-
-/管 日志 最近
-/管 日志 @用户
-/管 名片日志 @用户
-/管 处罚日志 @用户
-/管 最近消息 @用户
-/管 消息 消息ID
-
-/管 名片 @用户 新名片
-/管 清名片 @用户
-/管 名片查 @用户
-/管 名片锁 @用户 固定名片
-/管 名片解锁 @用户
-/管 名片锁列表
-/管 名片扫描
-/管 名片修复
-/管 名片锁全群 开
-/管 名片锁全群 关
-
-/管 规则 添加 关键词 xxx 警告
-/管 规则 添加 关键词 xxx 撤回
-/管 规则 添加 关键词 xxx 禁言10m
-/管 规则 添加 正则 xxx 踢出
-/管 规则 删除 ID
-/管 规则 列表
-/管 规则 测试 文本
-/管 广告检测 开
-/管 广告检测 关
-/管 广告词 添加 xxx
-/管 广告词 删除 ID
-/管 广告词 列表
-/管 刷屏检测 开
-/管 刷屏检测 关
-/管 积分 @用户
-/管 积分 清零 @用户
-
-/管 新人保护 开
-/管 新人保护 关
-/管 新人保护 时长 24h
-/管 新人禁链接 开|关
-/管 新人禁图片 开|关
-/管 新人保护 链接 开|关
-/管 新人保护 图片 开|关
-
-/管 入群审核 开
-/管 入群审核 关
-/管 入群暗号 设置 xxx
-/管 入群拒绝理由 设置 xxx
-/管 入群欢迎 开
-/管 入群欢迎 关
-/管 入群欢迎 状态
-/管 入群欢迎 模板 文本
-
-/管 群名 设置 新群名
-/管 群名锁 开 新群名
-/管 群名锁 关
-/管 群名修复
-/管 匿名 开|关
-/管 匿名锁 开 开|关
-/管 匿名锁 关
-/管 全体禁言 开|关
-/管 头衔 @用户 头衔
-/管 巡检
-/管 巡检 名片
-/管 巡检 权限
-/管 自动巡检 开
-/管 自动巡检 关
-/管 自动巡检 间隔 5s
-
-/ai状态
-/ai测试
-
 /知识 导入本地
-/知识 搜索 压枪
-/知识 问 压枪怎么设置
-/知识 分类
-/知识 范围
-/知识 范围 全部
-/知识 范围 分类 06_连点与压枪
-/知识 范围 分类 07_投屏ScreenHub,09_QInEScreen手机APP
-/知识 范围 技能 qinex_recoil_click,qinex_screenhub
-/知识 技能
-/知识 查看 K0001
-/知识 有用 K0001
-/知识 没用 K0001
-/问 投屏卡顿怎么办
-/FAQ S3
-
-/客服 帮助
-/客服 状态
-/客服 开启
-/客服 关闭
-/客服 模式 命令触发
-/客服 模式 智能监听
-/求助 压枪怎么配置
-/不会用 投屏
-@机器人 投屏控制模式退不出来怎么办
 ```
 
-## 权限说明
+## 授权登记说明
 
-权限来源优先级：
+`nonebot_plugin_qlicense` 只负责和你的授权服务做加密内部 API 交互，不在机器人仓库保存 S3/P4 授权私钥。P4 在线激活必须在授权服务端配置 `P4_PRIVKEY_PATH`，并确保私钥和固件内置公钥是一对。详细配置和升级顺序见 [部署与升级](docs/DEPLOYMENT.md)。
 
-```text
-QGUARD_SUPER_ADMINS > 插件角色/OneBot 群角色中更高者 > 普通成员
+## 测试
+
+```bash
+python -m pytest
 ```
 
-插件角色包括：普通成员、可信用户、小管理。可信用户及以上不会被自动审核处罚；小管理可以警告、禁言、解禁、撤回，但不能踢人；群管理员不能处罚群主，也不能处罚同级或更高权限成员。
+当前测试覆盖群管核心逻辑、插件注册中心、知识库、智能问答、词云和授权登记客户端。
 
-## 插件中心说明
+## 开源注意
 
-QGuard 提供轻量插件注册中心，已加载的 AI Core、GroupWiki、QInEX AnswerBot 会把命令、权限、回复分类和状态提供器注册给 QGuard。`/管 帮助` 会按当前用户权限动态展示命令，不再只显示写死的群管命令。
+本仓库 `.gitignore` 已排除本地 `.env`、数据库、构建产物、压缩包、密钥文件和内部 AI 提示词设计稿。开源前请再按 [开源检查清单](docs/OPEN_SOURCE_CHECKLIST.md) 做一次确认。
 
-常用入口：
+## License
 
-- `/管 插件`
-- `/管 插件 状态`
-- `/管 插件 帮助 qinex_answer`
-- `/管 插件 开 qinex_answer`
-- `/管 插件 关 qinex_answer`
-- `/管 插件 权限 qinex_answer /客服 群管理员`
-- `/管 帮助 AI`
-- `/管 帮助 知识库`
-- `/管 帮助 全部`
-
-插件中心开关只有插件提供适配器时才会真正修改执行层配置；当前已支持 QGuard 和 QInEX AnswerBot。AI Core、GroupWiki 暂时只注册帮助和状态。
-
-## 自动撤回说明
-
-机器人回复分为两类：
-
-- 指令消息：QGuard 的 `/管 ...` 命令反馈。
-- 聊天消息：AI Core、GroupWiki、QInEX AnswerBot 产生的智能问答回复。
-
-默认只撤回指令消息，聊天消息会保留。可以用 `/管 自动撤回 分类 指令|聊天|全部|关闭` 调整撤回范围，用 `/管 自动撤回 90s` 调整撤回时间。
-
-## 自动清理说明
-
-`/管 自动清理 开` 后会按本群配置扫描长期未活跃成员。默认 30 天、60 天私聊提醒，90 天踢出群，不加入黑名单。可信用户、小管理、群管理员、群主、超级管理员和白名单成员不会被自动清理。
-
-可以用 `/管 自动清理 提醒 30d 60d` 调整提醒次数和时间点，用 `/管 自动清理 踢出 90d` 调整踢出阈值，用 `/管 自动清理 间隔 1d` 调整扫描频率。测试时可以用 `/管 自动清理 执行` 手动跑一次。
-
-## GroupWiki 说明
-
-GroupWiki 用于把 `知识库` 目录里的 QInEX 软件文档导入为群内智能问答知识库。默认只围绕 QInEX 文档回答；知识库里没有依据的问题，会提示没有找到足够信息，不会编造软件功能、价格、授权或承诺。
-
-常用入口：
-
-- `/知识 导入本地`
-- `/知识 搜索 <关键词>`
-- `/知识 问 <问题>`
-- `/问 <问题>`
-- `/FAQ <关键词>`
-- `/知识 分类`
-- `/知识 范围`
-- `/知识 范围 全部`
-- `/知识 范围 分类 <分类1,分类2>`
-- `/知识 范围 技能 <skill_id>`
-- `/知识 技能`
-- `/知识 查看 K0001`
-- `/知识 有用 K0001`
-- `/知识 没用 K0001`
-
-每个群可以单独选择知识库回答范围。默认是全部分类；设置分类后，本群的 `/问`、`/知识 问`、QInEX AnswerBot `/求助` 都只会在这些分类里检索和回答。
-
-当前内置 skills：
-
-- `qinex_basic`：`01_产品简介与选型`、`02_硬件模式(ESP32-S3)接线与上手`、`03_免硬件模式(数据线ADB)`
-- `qinex_mapping`：`04_配置面板-基础布键`、`05_高级映射(开镜背包载具手势蓄力)`
-- `qinex_recoil_click`：`06_连点与压枪`
-- `qinex_screenhub`：`07_投屏ScreenHub`、`09_QInEScreen手机APP`
-- `qinex_p4`：`08_P4单机版`、`09_QInEScreen手机APP`
-- `qinex_troubleshooting`：`10_排障与卡顿速查`
-
-`FAQ问答对` 会作为共享检索燃料参与问答，但会按 skill/chunk 标签过滤，不会绕过本群知识范围。
-
-AI 回答的引用口径是 `文件名#小节`，例如 `06_连点与压枪#压枪`。
-
-部署时把仓库里的 `知识库` 目录复制到 NoneBot 项目根目录，或用 `GROUP_WIKI_IMPORT_DIR` 指向你的知识库目录。导入后会写入 `wiki_article`、`wiki_article_version`、`wiki_search_index`、`wiki_feedback` 和 `wiki_group_scope_config`。
-
-## QInEX AnswerBot 说明
-
-QInEX AnswerBot 是 QInEX 映射软件专属智能问答入口，只根据 GroupWiki 当前群生效的知识范围回答。它不创建工单、不转人工、不提供 `/报错` 或 `/诊断`。
-
-默认模式是命令触发，不监听普通聊天。管理员可以用 `/客服 模式 智能监听` 开启保守监听。
-
-常用入口：
-
-- `/求助 <问题描述>`
-- `/售后 <问题描述>`
-- `/不会用 <功能名称>`
-- `@机器人 <自然语言问题>`
-
-QInEX AnswerBot 的群内回复标记为聊天消息，默认不会被 QGuard 自动撤回。知识范围由 `/知识 范围` 控制，默认全部分类。用户 @ 机器人时会直接进入问答；智能监听模式仍然默认关闭，只有管理员开启后才监听非 @ 的普通聊天。
-
-如果当前群知识范围内没有可靠答案，机器人会：
-
-- 在群里明确提示当前知识库范围没有可靠答案。
-- 写入 `support_no_answer` 记录。
-- 私聊 `SUPPORT_BOT_ADMINS` 中配置的主人，默认是 `1348984838`。
-
-智能问答内置骚扰记忆，默认开启。非管理员持续辱骂、挑衅机器人，或反复发送明显不属于 QInEX 的问题，会先累计“生气值”；达到阈值后会调用 QGuard 的违规积分体系给用户加分，后续禁言/踢出仍按群管插件原本的积分阶梯处理。常用环境变量：
-
-- `SUPPORT_BOT_HARASSMENT_ENABLED=true|false`
-- `SUPPORT_BOT_HARASSMENT_WINDOW_SECONDS=300`
-- `SUPPORT_BOT_HARASSMENT_WARN_THRESHOLD=3`
-- `SUPPORT_BOT_HARASSMENT_SCORE_THRESHOLD=5`
-- `SUPPORT_BOT_HARASSMENT_SCORE_COOLDOWN_SECONDS=60`
-- `SUPPORT_BOT_HARASSMENT_SCORE_DELTA=1`
-- `SUPPORT_BOT_HARASSMENT_MAX_SCORE_DELTA=3`
-
-## 群名片锁说明
-
-名片锁使用三层兜底：
-
-- 兼容 OneBot 实现端可能上报的 `group_card` 扩展通知。
-- 定时巡检 `get_group_member_list`。
-- 群消息事件中检查发言人的名片。
-
-同一 `group_id:user_id` 会加异步锁，插件刚修复过名片后的短时间内会忽略重复事件，避免死循环。连续失败会写入失败次数和错误信息。
-
-## 自动审核说明
-
-自动审核包括自定义关键词/正则规则、广告检测、广告词库、刷屏检测和违规积分。默认策略保守：广告和刷屏优先撤回并短禁言，不默认踢人；多次违规会按积分阶梯升级处罚。
-
-广告检测内置常见广告词库，覆盖刷单返利、贷款套现、外部联系方式引流、发卡代充、账号交易、博彩投资、色情擦边、医药灰产和论文办证等高风险话术。开启广告检测或查看广告词列表时会自动给本群补齐默认库；如果某个词误伤，可以用 `/管 广告词 删除 ID` 停用，后续自动补齐不会把已停用的词重新启用。列表支持分页：`/管 广告词 列表 2`。
-
-## 入群审核说明
-
-开启入群审核后，QGuard 会先处理高风险申请，再判断暗号：
-
-- 黑名单用户自动拒绝。
-- 短时间重复申请自动拒绝。
-- 空申请理由自动拒绝。
-- 申请理由命中广告/引流检测自动拒绝。
-- 通过风险检查后，申请理由包含入群暗号才自动通过。
-
-## 数据库说明
-
-启动时会自动创建或补齐 SQLite 表结构，主要表：
-
-- `group_config`
-- `member_profile`
-- `card_lock`
-- `rule`
-- `ad_keyword`
-- `blacklist`
-- `whitelist`
-- `message_cache`
-- `audit_log`
-
-## 常见问题
-
-### 发一条命令收到两次回复
-
-通常是插件被加载了两次，例如同时存在本地插件目录和已安装的包，或者两个 `plugin_dirs` 都能扫描到 QGuard。保留一种加载方式即可。
-
-### `Module nonebot_plugin_qguard is not loaded as a plugin`
-
-一般是先用 Python 手动 `import nonebot_plugin_qguard`，又让 NoneBot 作为插件加载。测试导入和正式运行分开做，正式运行时只让 NoneBot 通过 `plugin_dirs` 或插件配置加载。
-
-### 头衔设置失败
-
-QQ 群专属头衔通常只有群主能设置。机器人不是群主时，QGuard 会返回跳过或失败原因，这是平台权限限制，不是插件命令失效。
-
-### `Fontconfig error`
-
-这通常来自 `nonebot-plugin-htmlkit` 的字体配置，不是 QGuard 的错误。QGuard 能正常加载和响应时可以先忽略，或者在服务器上补齐 fontconfig 配置。
-
-## 开发计划
-
-- 已完成：设计文档 v0.1 到 v0.5 的核心命令、名片锁、自动审核、新人保护、入群审核、群设置保护、自动巡检和审计能力。
-- 继续打磨：根据真实群样本调整广告词、刷屏阈值和误伤策略。
-- 继续补测：为更多命令补直接命令层测试，确保 README、帮助文本和实际命令长期一致。
-- 继续适配：按服务器实测日志修复不同 OneBot 实现的字段差异和权限边界。
-
-## 进度
-
-详细进度见 [PROGRESS.md](PROGRESS.md)。
+MIT

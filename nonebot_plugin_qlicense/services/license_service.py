@@ -42,29 +42,58 @@ class LicenseBotService:
         data["preflight"] = preflight
         return format_bind_result(data)
 
+    async def bind_p4(self, *, qq: int, mac: str, group_id: int | None, operator_id: int | None) -> str:
+        data = await self.client.post(
+            "/internal/bot/p4/bind",
+            {
+                "qq": str(qq),
+                "mac": mac,
+                "group_id": group_id,
+                "operator_id": operator_id,
+                "remark": "QQ 机器人自助登记",
+            },
+        )
+        try:
+            preflight = await self.check_device(mac=mac, product="p4")
+        except LicenseAPIError as exc:
+            raise LicenseAPIError(
+                f"P4 已登记，但在线激活预检失败：{exc.message}",
+                data=exc.data or data,
+                status_code=exc.status_code,
+            ) from exc
+        if not preflight.get("authorized"):
+            raise LicenseAPIError(
+                f"P4 已登记，但在线激活预检未通过：{preflight.get('message', '未知原因')}",
+                data=preflight,
+                status_code=409,
+            )
+        data["activation_ready"] = True
+        data["preflight"] = preflight
+        return format_bind_result(data)
+
     async def account_status(self, qq: int | str) -> str:
         data = await self.client.post("/internal/bot/account/status", {"qq": str(qq)})
         return format_account_status(data)
 
-    async def set_quota(self, *, qq: int | str, quota_total: int, operator_id: int | None) -> str:
+    async def set_quota(self, *, qq: int | str, quota_total: int, operator_id: int | None, product: str = "s3") -> str:
         data = await self.client.post(
             "/internal/bot/quota/set",
             {
                 "qq": str(qq),
-                "product": "s3",
+                "product": product,
                 "quota_total": quota_total,
                 "operator_id": operator_id,
                 "remark": "QQ 机器人设置",
             },
         )
-        return "S3 配额已更新。\n" + format_account_status(data)
+        return f"{product.upper()} 配额已更新。\n" + format_account_status(data)
 
-    async def set_default_quota(self, *, quota_total: int, operator_id: int | None) -> str:
+    async def set_default_quota(self, *, quota_total: int, operator_id: int | None, product: str = "s3") -> str:
         data = await self.client.post(
             "/internal/bot/default-quota/set",
-            {"product": "s3", "quota_total": quota_total, "operator_id": operator_id},
+            {"product": product, "quota_total": quota_total, "operator_id": operator_id},
         )
-        return f"全局默认 S3 配额已设置为 {data.get('default_quota', quota_total)}。"
+        return f"全局默认 {product.upper()} 配额已设置为 {data.get('default_quota', quota_total)}。"
 
     async def change_device(self, *, mac: str, action: str, operator_id: int | None) -> str:
         path_map = {
@@ -104,7 +133,8 @@ class LicenseBotService:
 
 
 def format_bind_result(data: dict) -> str:
-    prefix = "这块 S3 已经登记过。" if data.get("already_bound") else "S3 板子已登记。"
+    prod = str(data.get("product") or "s3").upper()
+    prefix = f"这块 {prod} 已经登记过。" if data.get("already_bound") else f"{prod} 板子已登记。"
     ready = "通过" if data.get("activation_ready") else "未确认"
     return (
         f"{prefix}\n"
@@ -121,17 +151,16 @@ def format_account_status(data: dict) -> str:
     products = data.get("products") or []
     lines = [f"授权状态：{qq}"]
     for product in products:
-        if product.get("product") != "s3":
-            continue
+        name = str(product.get("product") or "s3").upper()
         lines.append(
-            f"S3：{product.get('used', 0)}/{product.get('quota_total', 0)}，剩余 {product.get('remaining', 0)}"
+            f"{name}：{product.get('used', 0)}/{product.get('quota_total', 0)}，剩余 {product.get('remaining', 0)}"
         )
         bindings = product.get("bindings") or []
         if bindings:
             for item in bindings[:8]:
                 lines.append(f"- {item.get('mac', '')}：{_status_label(item.get('status', ''))}")
         else:
-            lines.append("- 暂无已登记 S3 板子")
+            lines.append(f"- 暂无已登记 {name} 板子")
     lines.append("")
     lines.append(MAC_SOURCE_TIP)
     return "\n".join(lines)
@@ -153,7 +182,7 @@ def parse_quota_args(text: str) -> tuple[str, int] | None:
     parts = text.split()
     if len(parts) < 2:
         return None
-    if parts[0].upper() == "S3" and len(parts) >= 3:
+    if parts[0].upper() in {"S3", "P4"} and len(parts) >= 3:
         qq = extract_qq(parts[1])
         quota = _parse_int(parts[2])
     else:

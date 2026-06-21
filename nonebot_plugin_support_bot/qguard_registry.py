@@ -49,7 +49,7 @@ def get_qguard_descriptor() -> PluginDescriptor:
         plugin_id="qinex_answer",
         display_name="QInEX 智能问答",
         module_name="nonebot_plugin_support_bot",
-        description="按本群知识库范围回答 QInEX 映射软件问题。",
+        description="按本群知识库范围回答 QInEX 问题，被 @ 时支持轻量闲聊。",
         commands=(
             _cmd("/求助 问题描述", "让智能客服按知识库回答", QGuardRole.MEMBER),
             _cmd("/售后 问题描述", "售后问答入口", QGuardRole.MEMBER),

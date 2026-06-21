@@ -19,8 +19,10 @@ from nonebot_plugin_qlicense.services.license_service import (
 
 def test_qlicense_command_parser() -> None:
     assert parse_license_command("/激活 S3 AABBCCDDEEFF") == ("/激活", ["S3"], "AABBCCDDEEFF")
+    assert parse_license_command("/激活 P4 AABBCCDDEEFF") == ("/激活", ["P4"], "AABBCCDDEEFF")
     assert parse_license_command("/激活 状态") == ("/激活", ["状态"], "")
     assert parse_license_command("/授权 配额 1348984838 2") == ("/授权", ["配额"], "1348984838 2")
+    assert parse_license_command("/授权 配额 1348984838 2 P4") == ("/授权", ["配额"], "1348984838 2 P4")
     assert parse_license_command("/授权 预检 AABBCCDDEEFF") == ("/授权", ["预检"], "AABBCCDDEEFF")
     assert parse_license_command("/客服 状态") is None
 
@@ -49,6 +51,7 @@ def test_qlicense_extractors_and_quota_args() -> None:
     assert extract_mac("mac 是 AA:BB:CC:DD:EE:FF") == "AA:BB:CC:DD:EE:FF"
     assert parse_quota_args("1348984838 3") == ("1348984838", 3)
     assert parse_quota_args("S3 1348984838 3") == ("1348984838", 3)
+    assert parse_quota_args("P4 1348984838 3") == ("1348984838", 3)
 
 
 def test_qlicense_formatters_include_mac_source_tip() -> None:
@@ -90,6 +93,69 @@ def test_qlicense_formatters_include_mac_source_tip() -> None:
     assert MAC_SOURCE_TIP in status_text
     assert "在线激活预检通过" in check_text
     assert MAC_SOURCE_TIP in check_text
+
+
+@pytest.mark.asyncio
+async def test_qlicense_bind_p4_runs_activation_preflight() -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls = []
+
+        async def post(self, path, payload):
+            self.calls.append((path, payload))
+            if path == "/internal/bot/p4/bind":
+                return {
+                    "product": "p4",
+                    "already_bound": False,
+                    "mac": "AA:BB:CC:**:**:FF",
+                    "used": 1,
+                    "quota_total": 1,
+                }
+            if path == "/internal/bot/device/check":
+                return {
+                    "authorized": True,
+                    "mac": "AA:BB:CC:**:**:FF",
+                    "product": "p4",
+                    "source": "devices",
+                    "p4_signing_ready": True,
+                }
+            raise AssertionError(path)
+
+    client = FakeClient()
+    service = LicenseBotService(client=client)
+
+    text = await service.bind_p4(qq=1348984838, mac="AA:BB:CC:DD:EE:FF", group_id=1, operator_id=1348984838)
+
+    assert "P4 板子已登记" in text
+    assert "在线激活预检：通过" in text
+    assert [path for path, _payload in client.calls] == ["/internal/bot/p4/bind", "/internal/bot/device/check"]
+    assert client.calls[1][1]["product"] == "p4"
+
+
+@pytest.mark.asyncio
+async def test_qlicense_p4_quota_requests_product() -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls = []
+
+        async def post(self, path, payload):
+            self.calls.append((path, payload))
+            if path == "/internal/bot/quota/set":
+                return {"qq": "1348984838", "products": []}
+            if path == "/internal/bot/default-quota/set":
+                return {"product": "p4", "default_quota": 2}
+            raise AssertionError(path)
+
+    client = FakeClient()
+    service = LicenseBotService(client=client)
+
+    quota_text = await service.set_quota(qq=1348984838, quota_total=2, operator_id=1348984838, product="p4")
+    default_text = await service.set_default_quota(quota_total=2, operator_id=1348984838, product="p4")
+
+    assert "P4 配额已更新" in quota_text
+    assert "全局默认 P4 配额已设置为 2" in default_text
+    assert client.calls[0][1]["product"] == "p4"
+    assert client.calls[1][1]["product"] == "p4"
 
 
 @pytest.mark.asyncio

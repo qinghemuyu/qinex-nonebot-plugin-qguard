@@ -70,6 +70,7 @@ class SupportBotService:
             f"触发模式：{mode}\n"
             f"智能监听：{'开' if smart_listen else '关'}\n"
             "连续对话：按提问人隔离\n"
+            f"轻量闲聊：{'开' if self.config.support_bot_allow_casual_chat else '关'}\n"
             f"骚扰惩罚：{'开' if self.config.support_bot_harassment_enabled else '关'}"
             f"（警告 {self.config.support_bot_harassment_warn_threshold}，积分 {self.config.support_bot_harassment_score_threshold}）\n"
             f"未解决升级：{self.config.support_bot_unresolved_escalation_turns} 轮\n"
@@ -143,6 +144,13 @@ class SupportBotService:
                 group_id,
                 user_id,
             )
+        if intent.reply_strategy == "casual_chat":
+            return await self._finalize_reply(
+                await self._casual_chat(raw_text, group_id=group_id, user_id=user_id),
+                raw_text,
+                group_id,
+                user_id,
+            )
         if intent.reply_strategy == "safe_no_answer":
             record_no = await self._record_no_answer(group_id, user_id, question_text, reason="privacy_or_license")
             return await self._finalize_reply(
@@ -187,8 +195,30 @@ class SupportBotService:
             intent=intent,
             user_text=raw_text,
             previous_context=previous_context,
-        )
+            )
         return await self._finalize_reply(reply, raw_text, group_id, user_id)
+
+    async def _casual_chat(self, text: str, *, group_id: int | None, user_id: int) -> SupportReply:
+        if not self.config.support_bot_allow_casual_chat:
+            return SupportReply(text="喵，我现在只回答 QInEX 映射软件相关问题。", state="out_of_scope")
+        try:
+            answer = await self.integration_service.casual_chat(
+                text,
+                group_id=group_id,
+                user_id=user_id,
+                software_name=self.config.support_bot_software_name,
+                max_tokens=self.config.support_bot_casual_chat_max_tokens,
+            )
+        except Exception:
+            answer = (
+                "喵，我在。闲聊可以陪你两句，不过我最擅长的还是 QInEX 排障；"
+                "如果是软件问题，直接把现象、模式和卡住的位置发我就行。"
+            )
+        return SupportReply(
+            text=trim_reply(answer.strip(), self.config.support_bot_max_reply_length),
+            state="casual_chat",
+            ai_used=True,
+        )
 
     async def should_handle_continuation(self, text: str, *, group_id: int | None, user_id: int) -> bool:
         stripped = text.strip()

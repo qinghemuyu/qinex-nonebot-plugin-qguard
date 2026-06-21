@@ -71,7 +71,27 @@ class IntentService:
         low_signal_problem = any(word in normalized for word in LOW_QUALITY) or any(
             word in normalized for word in GENERIC_PROBLEM_TERMS
         )
+        if _looks_like_raw_log_or_traceback(normalized):
+            return SupportIntent(
+                is_support_request=False,
+                intent="out_of_scope",
+                confidence=0.9,
+                skill="unknown",
+                issue_type="out_of_scope",
+                should_search_wiki=False,
+                reply_strategy="reject",
+            )
         if not skill_registry.is_qinex_related(text) and not low_signal_problem:
+            if self.config.support_bot_allow_casual_chat:
+                return SupportIntent(
+                    is_support_request=False,
+                    intent="casual_chat",
+                    confidence=0.72,
+                    skill="casual",
+                    issue_type="casual_chat",
+                    should_search_wiki=False,
+                    reply_strategy="casual_chat",
+                )
             return SupportIntent(
                 is_support_request=False,
                 intent="out_of_scope",
@@ -237,3 +257,18 @@ def _is_safe_activation_question(text: str) -> bool:
 
 def _has_device_marker(text: str) -> bool:
     return any(word in text for word in ("s3", "p4", "adb", "免硬件", "硬件", "板子", "数据线", "单机版"))
+
+
+def _looks_like_raw_log_or_traceback(text: str) -> bool:
+    return any(
+        marker in text
+        for marker in (
+            "traceback",
+            "modulenotfounderror",
+            "exception",
+            "stack trace",
+            "syntaxerror",
+            "typeerror",
+            "attributeerror",
+        )
+    )

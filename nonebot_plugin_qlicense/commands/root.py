@@ -17,14 +17,15 @@ license_matcher = on_message(priority=5, block=False)
 
 HELP_TEXT = f"""QLicense 命令
 /激活 S3 MAC
+/激活 P4 MAC
 /激活 状态
 /授权 查询 QQ
-/授权 配额 QQ 数量
-/授权 默认配额 数量
+/授权 配额 QQ 数量 [S3|P4]
+/授权 默认配额 数量 [S3|P4]
 /授权 解绑 MAC
 /授权 禁用 MAC
 /授权 恢复 MAC
-/授权 预检 MAC
+/授权 预检 [S3|P4] MAC
 /授权 同步预览
 /授权 同步执行
 
@@ -70,16 +71,18 @@ async def _handle_activate(bot: Bot, event: MessageEvent, service: LicenseBotSer
         await finish_reply(license_matcher, bot, event, HELP_TEXT)
     if action == "状态":
         await finish_reply(license_matcher, bot, event, await service.account_status(event.user_id))
-    if action.upper() != "S3":
-        await finish_reply(license_matcher, bot, event, "当前只支持 S3 自助登记。用法：/激活 S3 MAC")
+    prod = action.upper()
+    if prod not in {"S3", "P4"}:
+        await finish_reply(license_matcher, bot, event, "用法：/激活 S3 MAC 或 /激活 P4 MAC")
     mac = extract_mac(args_text)
     if not mac:
-        await finish_reply(license_matcher, bot, event, f"用法：/激活 S3 MAC\n{MAC_SOURCE_TIP}")
+        await finish_reply(license_matcher, bot, event, f"用法：/激活 {prod} MAC\n{MAC_SOURCE_TIP}")
+    binder = service.bind_p4 if prod == "P4" else service.bind_s3
     await finish_reply(
         license_matcher,
         bot,
         event,
-        await service.bind_s3(
+        await binder(
             qq=event.user_id,
             mac=mac,
             group_id=get_event_group_id(event),
@@ -97,16 +100,19 @@ async def _handle_admin(bot: Bot, event: MessageEvent, service: LicenseBotServic
             await finish_reply(license_matcher, bot, event, "用法：/授权 查询 QQ")
         await finish_reply(license_matcher, bot, event, await service.account_status(qq))
     if action == "配额":
-        parsed = parse_quota_args((extract_at_qq(event) + " " + args_text).strip() if extract_at_qq(event) else args_text)
+        raw = (extract_at_qq(event) + " " + args_text).strip() if extract_at_qq(event) else args_text
+        parsed = parse_quota_args(raw)
         if parsed is None:
-            await finish_reply(license_matcher, bot, event, "用法：/授权 配额 QQ 数量，例如 /授权 配额 1348984838 2")
+            await finish_reply(license_matcher, bot, event, "用法：/授权 配额 QQ 数量 [S3|P4]，例如 /授权 配额 1348984838 2 P4")
         qq, quota = parsed
-        await finish_reply(license_matcher, bot, event, await service.set_quota(qq=qq, quota_total=quota, operator_id=event.user_id))
+        product = "p4" if "P4" in raw.upper() else "s3"
+        await finish_reply(license_matcher, bot, event, await service.set_quota(qq=qq, quota_total=quota, operator_id=event.user_id, product=product))
     if action == "默认配额":
         quota = _parse_first_int(args_text)
         if quota is None:
-            await finish_reply(license_matcher, bot, event, "用法：/授权 默认配额 数量，例如 /授权 默认配额 1")
-        await finish_reply(license_matcher, bot, event, await service.set_default_quota(quota_total=quota, operator_id=event.user_id))
+            await finish_reply(license_matcher, bot, event, "用法：/授权 默认配额 数量 [S3|P4]，例如 /授权 默认配额 1 P4")
+        product = "p4" if "P4" in args_text.upper() else "s3"
+        await finish_reply(license_matcher, bot, event, await service.set_default_quota(quota_total=quota, operator_id=event.user_id, product=product))
     if action in {"解绑", "禁用", "恢复"}:
         mac = extract_mac(args_text)
         if not mac:
@@ -115,8 +121,9 @@ async def _handle_admin(bot: Bot, event: MessageEvent, service: LicenseBotServic
     if action == "预检":
         mac = extract_mac(args_text)
         if not mac:
-            await finish_reply(license_matcher, bot, event, "用法：/授权 预检 MAC")
-        await finish_reply(license_matcher, bot, event, await service.check_device_text(mac=mac, product="s3"))
+            await finish_reply(license_matcher, bot, event, "用法：/授权 预检 [S3|P4] MAC")
+        product = "p4" if "P4" in args_text.upper() else "s3"
+        await finish_reply(license_matcher, bot, event, await service.check_device_text(mac=mac, product=product))
     if action == "同步预览":
         await finish_reply(license_matcher, bot, event, await service.legacy_sync(execute=False, operator_id=event.user_id))
     if action == "同步执行":

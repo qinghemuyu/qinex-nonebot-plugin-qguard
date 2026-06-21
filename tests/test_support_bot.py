@@ -25,6 +25,7 @@ class FakeIntegration:
         self.references = references if references is not None else ["06_连点与压枪#压枪"]
         self.questions: list[str] = []
         self.search_queries: list[str | None] = []
+        self.casual_questions: list[str] = []
 
     async def ask_wiki(
         self,
@@ -37,6 +38,18 @@ class FakeIntegration:
         self.questions.append(question)
         self.search_queries.append(search_query)
         return FakeWikiResponse(answer=f"知识库回答：{question}", references=self.references)
+
+    async def casual_chat(
+        self,
+        text: str,
+        *,
+        group_id: int | None,
+        user_id: int | None,
+        software_name: str,
+        max_tokens: int,
+    ) -> str:
+        self.casual_questions.append(text)
+        return f"闲聊回复：{text}"
 
 
 def test_parse_support_command() -> None:
@@ -95,8 +108,17 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     assert wasd_component.issue_type == "mapping_not_working"
     assert ads_component.reply_strategy == "answer"
     assert ads_component.issue_type == "config_problem"
-    assert generic_wasd.reply_strategy == "reject"
-    assert generic_game.reply_strategy == "reject"
+    assert generic_wasd.reply_strategy == "casual_chat"
+    assert generic_game.reply_strategy == "casual_chat"
+    assert out_scope.reply_strategy == "casual_chat"
+
+
+@pytest.mark.asyncio
+async def test_support_intent_can_disable_casual_chat() -> None:
+    service = IntentService(Config(support_bot_allow_casual_chat=False))
+
+    out_scope = await service.classify("Python 怎么安装依赖")
+
     assert out_scope.reply_strategy == "reject"
 
 
@@ -251,15 +273,17 @@ async def test_support_bot_continuation_rule_does_not_create_group_config() -> N
 
 
 @pytest.mark.asyncio
-async def test_answer_bot_rejects_non_qinex_question() -> None:
+async def test_answer_bot_allows_casual_chat_for_non_qinex_question() -> None:
     await init_db()
     group_id = 855000000 + (uuid4().int % 100000000)
-    service = SupportBotService(Config(), integration_service=FakeIntegration())
+    integration = FakeIntegration()
+    service = SupportBotService(Config(), integration_service=integration)
 
     reply = await service.handle_user_issue("Python 怎么安装依赖", group_id=group_id, user_id=1)
 
-    assert "只回答 QInEX" in reply.text
-    assert reply.state == "out_of_scope"
+    assert "闲聊回复" in reply.text
+    assert reply.state == "casual_chat"
+    assert integration.casual_questions == ["Python 怎么安装依赖"]
 
 
 @pytest.mark.asyncio
@@ -280,7 +304,7 @@ async def test_support_bot_harassment_adds_score_delta_for_abuse() -> None:
 
 
 @pytest.mark.asyncio
-async def test_support_bot_harassment_accumulates_mild_out_of_scope() -> None:
+async def test_support_bot_casual_chat_does_not_accumulate_mild_out_of_scope() -> None:
     await init_db()
     group_id = 856500000 + (uuid4().int % 100000000)
     service = SupportBotService(
@@ -292,8 +316,9 @@ async def test_support_bot_harassment_accumulates_mild_out_of_scope() -> None:
     second = await service.handle_user_issue("讲个笑话", group_id=group_id, user_id=457)
 
     assert first.harassment_score_delta == 0
-    assert second.harassment_score_delta == 1
-    assert second.harassment_reason == "反复发送非 QInEX 问题"
+    assert second.harassment_score_delta == 0
+    assert first.state == "casual_chat"
+    assert second.state == "casual_chat"
 
 
 @pytest.mark.asyncio

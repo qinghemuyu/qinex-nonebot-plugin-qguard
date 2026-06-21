@@ -18,6 +18,8 @@ class Config(BaseModel):
     support_bot_software_name: str = "QInEX"
     support_bot_admins: list[int] = [1348984838]
     support_bot_unresolved_escalation_turns: int = 10
+    support_bot_allow_casual_chat: bool = True
+    support_bot_casual_chat_max_tokens: int = 260
     support_bot_harassment_enabled: bool = True
     support_bot_harassment_window_seconds: int = 300
     support_bot_harassment_warn_threshold: int = 3
