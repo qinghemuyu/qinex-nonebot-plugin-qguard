@@ -147,16 +147,18 @@ class IntentService:
     def _guess_issue_type(text: str) -> str:
         if _is_safe_activation_question(text):
             return "activation_usage"
-        if "p4" in text:
-            return "p4_usage"
-        if any(word in text for word in ("投屏", "screenhub", "qinescreen", "vpointer")):
-            return "screenhub_usage"
         if any(word in text for word in ("授权码", "注册码", "订单", "退款", "换绑")):
             return "privacy_or_license"
+        if _has_screenhub_marker(text) and _has_performance_marker(text):
+            return "screenhub_usage"
+        if _has_performance_marker(text):
+            return "performance_problem"
+        if any(word in text for word in ("投屏", "screenhub", "qinescreen", "vpointer")):
+            return "screenhub_usage"
         if any(word in text for word in ("压枪", "连点", "映射", "按键", "鼠标", "没反应", "不生效", "按键没用", "没有触点", "无触点")):
             return "mapping_not_working"
-        if any(word in text for word in ("卡", "卡顿", "延迟", "掉帧", "丢帧", "一卡一卡", "卡卡", "一顿一顿", "忽快忽慢", "慢", "慢半拍", "不跟手", "触摸点黏", "滑屏不顺")):
-            return "performance_problem"
+        if "p4" in text:
+            return "p4_usage"
         if any(word in text for word in ("打不开", "启动", "闪退", "崩溃", "crash", "空白", "webview2")):
             return "launch_failed"
         if any(word in text for word in ("配置", "怎么", "如何", "教程", "不会")):
@@ -220,6 +222,8 @@ class IntentService:
             return False
         if any(marker in text for marker in ("wasd", "wa再", "wd再", "按住wa", "按住wd", "斜向", "对角")):
             return False
+        if _has_specific_component_and_symptom(text, issue_type):
+            return False
         if len(original) <= 14 and any(term in text for term in GENERIC_PROBLEM_TERMS):
             return True
         if len(diagnostic_fields) >= 2 and len(original) <= 18:
@@ -257,6 +261,58 @@ def _is_safe_activation_question(text: str) -> bool:
 
 def _has_device_marker(text: str) -> bool:
     return any(word in text for word in ("s3", "p4", "adb", "免硬件", "硬件", "板子", "数据线", "单机版"))
+
+
+def _has_screenhub_marker(text: str) -> bool:
+    return any(word in text for word in ("投屏", "screenhub", "qinescreen", "vpointer", "画面", "控制模式"))
+
+
+def _has_performance_marker(text: str) -> bool:
+    return any(
+        word in text
+        for word in (
+            "卡",
+            "卡顿",
+            "延迟",
+            "掉帧",
+            "丢帧",
+            "一卡一卡",
+            "卡卡",
+            "一顿一顿",
+            "忽快忽慢",
+            "慢",
+            "慢半拍",
+            "不跟手",
+            "触摸点黏",
+            "滑屏不顺",
+        )
+    )
+
+
+def _has_specific_component_and_symptom(text: str, issue_type: str) -> bool:
+    if not _has_performance_marker(text):
+        return False
+    if issue_type == "screenhub_usage":
+        return _has_screenhub_marker(text)
+    if issue_type == "performance_problem":
+        component_markers = (
+            "p4",
+            "s3",
+            "adb",
+            "免硬件",
+            "滑屏",
+            "投屏",
+            "画面",
+            "按键",
+            "鼠标",
+            "触摸",
+            "上位机",
+            "回报率",
+            "8000",
+            "8k",
+        )
+        return any(marker in text for marker in component_markers)
+    return False
 
 
 def _looks_like_raw_log_or_traceback(text: str) -> bool:

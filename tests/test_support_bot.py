@@ -81,6 +81,7 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     ambiguous_mouse = await service.classify("鼠标没反应")
     vague_jank = await service.classify("卡")
     precise_calibration = await service.classify("校准映射之后 部分映射按键失效")
+    p4_screen_jank = await service.classify("P4卡顿 投屏卡顿")
     wasd_component = await service.classify("按住WA再按D没反应")
     ads_component = await service.classify("右键开镜怎么配")
     generic_wasd = await service.classify("我的wasd键盘坏了怎么办")
@@ -104,6 +105,8 @@ async def test_support_intent_rules_are_knowledge_only() -> None:
     assert vague_jank.reply_strategy == "ask_followup"
     assert vague_jank.issue_type == "performance_problem"
     assert precise_calibration.reply_strategy == "answer"
+    assert p4_screen_jank.reply_strategy == "answer"
+    assert p4_screen_jank.issue_type == "screenhub_usage"
     assert wasd_component.reply_strategy == "answer"
     assert wasd_component.issue_type == "mapping_not_working"
     assert ads_component.reply_strategy == "answer"
@@ -174,6 +177,21 @@ async def test_support_bot_allows_pc_client_jank_question() -> None:
 
     assert reply.state == "answered"
     assert reply.references == ["10_排障与卡顿速查#卡顿分三段"]
+    assert integration.questions == [question]
+
+
+@pytest.mark.asyncio
+async def test_support_bot_p4_screenhub_jank_answers_instead_of_followup() -> None:
+    await init_db()
+    group_id = 850700000 + (uuid4().int % 100000000)
+    integration = FakeIntegration(references=["07_投屏ScreenHub#投屏卡顿怎么办"])
+    service = SupportBotService(Config(), integration_service=integration)
+
+    question = "P4卡顿 投屏卡顿"
+    reply = await service.handle_user_issue(question, group_id=group_id, user_id=1)
+
+    assert reply.state == "answered"
+    assert reply.references == ["07_投屏ScreenHub#投屏卡顿怎么办"]
     assert integration.questions == [question]
 
 
