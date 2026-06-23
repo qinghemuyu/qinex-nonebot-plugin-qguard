@@ -69,6 +69,8 @@ ws://127.0.0.1:8080/onebot/v11/ws
 /知识 导入本地
 ```
 
+许可证注意：插件源码按 MIT 开源；`知识库/` 只允许公开查阅、QInEX 使用参考和随本仓库机器人使用，不按 MIT 授权二次分发。详见 [QInEX Knowledge Base License](KNOWLEDGE_BASE_LICENSE.md)。
+
 ## 授权登记说明
 
 `nonebot_plugin_qlicense` 只负责和你的授权服务做加密内部 API 交互，不在机器人仓库保存 S3/P4 授权私钥。P4 在线激活必须在授权服务端配置 `P4_PRIVKEY_PATH`，并确保私钥和固件内置公钥是一对。详细配置和升级顺序见 [部署与升级](docs/DEPLOYMENT.md)。
@@ -87,4 +89,6 @@ python -m pytest
 
 ## License
 
-MIT
+代码、测试和开发文档：MIT。
+
+`知识库/`：保留版权，单独授权，详见 [KNOWLEDGE_BASE_LICENSE.md](KNOWLEDGE_BASE_LICENSE.md)。

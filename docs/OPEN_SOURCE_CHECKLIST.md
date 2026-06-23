@@ -13,6 +13,7 @@
 - `NoneBot_AI_*.md` 没有提交。
 - 授权服务私钥、S3/P4 授权算法、密钥、生成规则没有提交。
 - 真实 AI API Key、OneBot access token、授权服务 HMAC secret 没有提交。
+- `知识库/` 的授权边界已经确认：公开查阅可以，二次分发/镜像/商业使用/训练数据使用需要单独授权。
 
 仓库 `.gitignore` 已覆盖上述常见文件，但开源前仍建议执行：
 
@@ -47,6 +48,7 @@ rg -n "sk-|api[_-]?key|secret|token|password|PRIVATE|私钥|密钥|授权算法|
 ```text
 README.md
 LICENSE
+KNOWLEDGE_BASE_LICENSE.md
 .env.example
 docs/
 nonebot_plugin_qguard/
@@ -82,7 +84,7 @@ git archive --format=zip --output F:\code\nonebot\qinex-update.zip HEAD
 
 - QQ 群管理逻辑。
 - AI Core 调用框架。
-- QInEX 公开使用知识库。
+- QInEX 公开使用知识库。注意：知识库公开查阅，不等于按 MIT 授权复制分发。
 - S3/P4 自助登记客户端逻辑。
 - 授权服务内部 API 的调用方式和安全约束。
 

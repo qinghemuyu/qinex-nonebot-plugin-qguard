@@ -1,4 +1,11 @@
-MIT License
+# License
+
+This repository uses a split license:
+
+- Source code, tests, and developer documentation are licensed under the MIT
+  License below, unless a file states otherwise.
+- The QInEX public knowledge base under `知识库/` is not licensed under MIT.
+  It is covered by the separate terms in `KNOWLEDGE_BASE_LICENSE.md`.
 
 Copyright (c) 2026 QGuard contributors
 
