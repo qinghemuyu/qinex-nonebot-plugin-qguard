@@ -106,7 +106,7 @@ def get_qguard_descriptor() -> PluginDescriptor:
         _cmd("/管 规则 添加 关键词 xxx 撤回", "添加关键词撤回规则", QGuardRole.GROUP_ADMIN, danger_level=1),
         _cmd("/管 规则 添加 关键词 xxx 禁言10m", "添加关键词禁言规则", QGuardRole.GROUP_ADMIN, danger_level=2),
         _cmd("/管 规则 添加 正则 xxx 踢出", "添加正则踢出规则", QGuardRole.GROUP_ADMIN, danger_level=3),
-        _cmd("/管 规则 删除 ID", "删除规则", QGuardRole.GROUP_ADMIN, danger_level=1),
+        _cmd("/管 规则 删除 ID[,ID...]", "删除一条或多条规则", QGuardRole.GROUP_ADMIN, danger_level=1),
         _cmd("/管 规则 列表", "查看规则列表", QGuardRole.TRUSTED),
         _cmd("/管 规则 测试 文本", "测试规则命中", QGuardRole.TRUSTED),
         _cmd("/管 广告检测 开", "开启广告检测", QGuardRole.GROUP_ADMIN, danger_level=1),

@@ -30,7 +30,7 @@ async def _(bot: Bot, event: GroupMessageEvent) -> None:
             await finish_reply(rule_matcher, bot, event, denied)
         await _handle_add_rule(bot, event, args)
     elif args[1] == "删除":
-        denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN, command_selector="/管 规则 删除 ID")
+        denied = await ensure_manager(bot, event, QGuardRole.GROUP_ADMIN, command_selector="/管 规则 删除 ID[,ID...]")
         if denied:
             await finish_reply(rule_matcher, bot, event, denied)
         await _handle_delete_rule(bot, event, args)
@@ -97,22 +97,46 @@ async def _handle_add_rule(bot: Bot, event: GroupMessageEvent, args: list[str]) 
 
 
 async def _handle_delete_rule(bot: Bot, event: GroupMessageEvent, args: list[str]) -> None:
-    if len(args) < 3 or not args[2].isdigit():
-        await finish_reply(rule_matcher, bot, event, "用法：/管 规则 删除 ID")
-    rule_id = int(args[2])
+    if len(args) < 3:
+        await finish_reply(rule_matcher, bot, event, "用法：/管 规则 删除 ID[,ID...]")
+    try:
+        rule_ids = _parse_rule_ids(args[2:])
+    except ValueError as exc:
+        await finish_reply(rule_matcher, bot, event, str(exc))
+    if not rule_ids:
+        await finish_reply(rule_matcher, bot, event, "用法：/管 规则 删除 ID[,ID...]")
+
+    deleted: list[int] = []
+    missing: list[int] = []
     async with get_session() as session:
-        item = await RuleRepo(session).disable(rule_id, event.group_id)
-        await AuditLogRepo(session).create(
-            group_id=event.group_id,
-            operator_id=event.user_id,
-            action=AuditAction.DELETE_RULE,
-            result=AuditResult.SUCCESS if item else AuditResult.SKIPPED,
-            related_rule_id=rule_id,
-        )
+        repo = RuleRepo(session)
+        audit_repo = AuditLogRepo(session)
+        for rule_id in rule_ids:
+            item = await repo.disable(rule_id, event.group_id)
+            if item is None:
+                missing.append(rule_id)
+            else:
+                deleted.append(rule_id)
+            await audit_repo.create(
+                group_id=event.group_id,
+                operator_id=event.user_id,
+                action=AuditAction.DELETE_RULE,
+                result=AuditResult.SUCCESS if item else AuditResult.SKIPPED,
+                related_rule_id=rule_id,
+            )
         await session.commit()
-    if item is None:
-        await finish_reply(rule_matcher, bot, event, "没有找到这条规则。")
-    await finish_reply(rule_matcher, bot, event, f"规则 #{rule_id} 已删除。")
+
+    if len(rule_ids) == 1:
+        if not deleted:
+            await finish_reply(rule_matcher, bot, event, "没有找到这条规则。")
+        await finish_reply(rule_matcher, bot, event, f"规则 #{deleted[0]} 已删除。")
+
+    lines = ["批量删除规则完成："]
+    if deleted:
+        lines.append("已删除：" + "、".join(f"#{rule_id}" for rule_id in deleted))
+    if missing:
+        lines.append("未找到：" + "、".join(f"#{rule_id}" for rule_id in missing))
+    await finish_reply(rule_matcher, bot, event, "\n".join(lines))
 
 
 async def _handle_list_rules(bot: Bot, event: GroupMessageEvent) -> None:
@@ -173,6 +197,25 @@ def _add_rule_selector(args: list[str]) -> str:
     if "撤回" in action_text or "删除" in action_text:
         return "/管 规则 添加 关键词 xxx 撤回"
     return "/管 规则 添加 关键词 xxx 警告"
+
+
+def _parse_rule_ids(tokens: list[str]) -> list[int]:
+    raw = " ".join(tokens).strip()
+    if not raw:
+        return []
+    result: list[int] = []
+    seen: set[int] = set()
+    for item in re.split(r"[\s,，、;；]+", raw):
+        item = item.strip().removeprefix("#")
+        if not item:
+            continue
+        if not item.isdigit():
+            raise ValueError("规则 ID 只能是数字，多个 ID 可用逗号或空格分隔。")
+        rule_id = int(item)
+        if rule_id not in seen:
+            seen.add(rule_id)
+            result.append(rule_id)
+    return result
 
 
 def _parse_rule_action(tokens: list[str]) -> tuple[RuleAction, int, bool, int]:

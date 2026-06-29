@@ -1,6 +1,7 @@
 import pytest
 from uuid import uuid4
 
+from nonebot_plugin_qguard.commands.rule import _parse_rule_ids
 from nonebot_plugin_qguard.enums import RuleAction, RuleType
 from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.repositories.rule_repo import RuleRepo
@@ -14,6 +15,11 @@ async def test_rule_engine_default_no_hit() -> None:
     )
     assert not decision.hit
     assert decision.action == "none"
+
+
+def test_parse_rule_ids_accepts_batch_formats() -> None:
+    assert _parse_rule_ids(["10,6,19,18,17,16,14,12,11"]) == [10, 6, 19, 18, 17, 16, 14, 12, 11]
+    assert _parse_rule_ids(["#10", "6，19", "18、17", "10"]) == [10, 6, 19, 18, 17]
 
 
 @pytest.mark.asyncio
