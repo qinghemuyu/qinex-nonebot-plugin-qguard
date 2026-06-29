@@ -7,6 +7,7 @@ from nonebot_plugin_qguard.models.base import get_session
 from nonebot_plugin_qguard.models.message_cache import MessageCache
 from nonebot_plugin_qguard.repositories.member_cleanup_notice_repo import MemberCleanupNoticeRepo
 from nonebot_plugin_qguard.repositories.message_cache_repo import MessageCacheRepo
+from nonebot_plugin_qguard.repositories.whitelist_repo import WhitelistRepo
 from nonebot_plugin_qguard.services.bulk_recall_service import BulkRecallService
 from nonebot_plugin_qguard.services.inactive_cleanup_service import (
     InactiveCleanupService,
@@ -60,7 +61,7 @@ def test_cleanup_day_helpers() -> None:
 
 
 @pytest.mark.asyncio
-async def test_inactive_cleanup_reminds_and_kicks_once() -> None:
+async def test_inactive_cleanup_reminds_then_confirms_kick_once() -> None:
     group_id = 996000000 + (uuid4().int % 100000000)
     now = datetime(2026, 6, 20, 0, 0, 0)
     members = [
@@ -74,20 +75,69 @@ async def test_inactive_cleanup_reminds_and_kicks_once() -> None:
     service = InactiveCleanupService()
 
     await service.set_enabled(group_id, 1, True)
-    result = await service.run_group(bot, group_id, now=now)
+    result = await service.run_group(bot, group_id, now=now, notify_owners=False)
 
     assert result.checked == 4
     assert result.reminded == 2
-    assert result.kicked == 1
+    assert result.pending == 1
+    assert result.kicked == 0
     assert [item[0] for item in bot.private_messages] == [1001, 1002]
-    assert bot.kicked == [(group_id, 1003, False)]
+    assert bot.kicked == []
+    pending = await service.list_pending(group_id)
+    assert [item.user_id for item in pending] == [1003]
+    assert pending[0].inactive_days == 91
 
-    second = await service.run_group(bot, group_id, now=now)
+    second = await service.run_group(bot, group_id, now=now, notify_owners=False)
 
     assert second.reminded == 0
+    assert second.pending == 0
     assert second.kicked == 0
     assert len(bot.private_messages) == 2
+    assert bot.kicked == []
+
+    confirm = await service.confirm_pending(bot, group_id, operator_id=1348984838, now=now)
+
+    assert confirm.total == 1
+    assert confirm.kicked == 1
     assert bot.kicked == [(group_id, 1003, False)]
+
+    third = await service.run_group(bot, group_id, now=now, notify_owners=False)
+
+    assert third.pending == 0
+    assert third.kicked == 0
+    assert bot.kicked == [(group_id, 1003, False)]
+
+
+@pytest.mark.asyncio
+async def test_inactive_cleanup_confirm_can_exclude_member() -> None:
+    group_id = 999000000 + (uuid4().int % 100000000)
+    now = datetime(2026, 6, 20, 0, 0, 0)
+    members = [
+        {"user_id": 2001, "role": "member", "last_sent_time": int((now - timedelta(days=91)).timestamp())},
+    ]
+    bot = FakeBot(members)
+    service = InactiveCleanupService()
+
+    await service.set_enabled(group_id, 1, True)
+    result = await service.run_group(bot, group_id, now=now, notify_owners=False)
+
+    assert result.pending == 1
+    confirm = await service.confirm_pending(
+        bot,
+        group_id,
+        operator_id=1348984838,
+        exclude_user_ids=[2001],
+        now=now,
+    )
+
+    assert confirm.total == 1
+    assert confirm.kicked == 0
+    assert confirm.kept == 1
+    assert bot.kicked == []
+    assert await service.list_pending(group_id) == []
+
+    async with get_session() as session:
+        assert await WhitelistRepo(session).is_whitelisted(group_id, 2001)
 
 
 @pytest.mark.asyncio

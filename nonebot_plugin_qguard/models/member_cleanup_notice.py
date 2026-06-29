@@ -16,4 +16,6 @@ class MemberCleanupNotice(TimestampMixin, Base):
     reminder_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_reminded_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_reminded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    pending_cleanup_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    pending_cleanup_inactive_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     kicked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

@@ -67,6 +67,8 @@ class AuditAction(StrEnum):
     SET_AUTO_PATROL_INTERVAL = "set_auto_patrol_interval"
     SET_AUTO_CLEANUP = "set_auto_cleanup"
     AUTO_CLEANUP_REMIND = "auto_cleanup_remind"
+    AUTO_CLEANUP_PENDING = "auto_cleanup_pending"
+    AUTO_CLEANUP_CANCEL = "auto_cleanup_cancel"
     AUTO_CLEANUP_KICK = "auto_cleanup_kick"
     SET_PLUGIN_ENABLED = "set_plugin_enabled"
     SET_PLUGIN_PERMISSION = "set_plugin_permission"

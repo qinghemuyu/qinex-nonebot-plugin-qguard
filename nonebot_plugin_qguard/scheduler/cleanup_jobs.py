@@ -34,10 +34,11 @@ async def auto_cleanup_inactive_job() -> None:
             try:
                 result = await service.run_group(bot, config.group_id, now=now)
                 logger.info(
-                    "QGuard auto cleanup group={} checked={} reminded={} kicked={} skipped={} failed={}",
+                    "QGuard auto cleanup group={} checked={} reminded={} pending={} kicked={} skipped={} failed={}",
                     config.group_id,
                     result.checked,
                     result.reminded,
+                    result.pending,
                     result.kicked,
                     result.skipped,
                     result.failed,
